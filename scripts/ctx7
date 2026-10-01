@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# ctx7 — read-only shell wrapper for the Context7 docs API (replaces the context7 MCP server).
+# No API key needed. Requires: curl, jq.
+#
+#   ctx7 search <library>                         top 5 matches: id, title, description
+#   ctx7 docs <libraryId> [--topic T] [--tokens N]  plain-text docs (default 5000 tokens)
+set -euo pipefail
+
+BASE="${CTX7_BASE_URL:-https://context7.com/api/v1}"
+
+usage() {
+  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//' >&2
+  exit 2
+}
+
+fetch() {
+  local url="$1" body code
+  body="$(mktemp)"
+  code="$(curl -sS -m 30 -G -o "$body" -w '%{http_code}' "$url" "${@:2}")" || { rm -f "$body"; echo "ctx7: network error" >&2; exit 1; }
+  if [[ "$code" != 200 ]]; then
+    echo "ctx7: HTTP $code from $url" >&2
+    [[ "$code" == 429 ]] && echo "ctx7: rate limited — retry later" >&2
+    rm -f "$body"
+    exit 1
+  fi
+  cat "$body"
+  rm -f "$body"
+}
+
+cmd="${1:-}"
+[[ -n "$cmd" ]] || usage
+shift
+
+case "$cmd" in
+  search)
+    [[ $# -ge 1 ]] || usage
+    fetch "$BASE/search" --data-urlencode "query=$*" \
+      | jq -r '.results[:5][] | "\(.id)\t\(.title)\t\(.description | .[0:140])"'
+    ;;
+  docs)
+    [[ $# -ge 1 ]] || usage
+    id="${1#/}"; shift
+    topic=""; tokens=5000
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --topic)  topic="${2:?--topic needs a value}"; shift 2 ;;
+        --tokens) tokens="${2:?--tokens needs a value}"; shift 2 ;;
+        *) usage ;;
+      esac
+    done
+    fetch "$BASE/$id" --data-urlencode "type=txt" --data-urlencode "topic=$topic" --data-urlencode "tokens=$tokens"
+    ;;
+  *) usage ;;
+esac
