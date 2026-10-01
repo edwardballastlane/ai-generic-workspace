@@ -47,6 +47,13 @@
         "DD_APP_KEY": "${DD_APP_KEY}"
       }
     },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
     "aws-cloudwatch": {
       "command": "uvx",
       "args": ["awslabs.cloudwatch-mcp-server"],
