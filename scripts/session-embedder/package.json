@@ -1,0 +1,16 @@
+{
+  "name": "session-embedder",
+  "version": "1.0.0",
+  "description": "Lightweight session embedding and semantic search",
+  "main": "index.ts",
+  "scripts": {
+    "embed": "ts-node index.ts embed",
+    "search": "ts-node search.ts"
+  },
+  "dependencies": {
+    "@types/node": "^20.0.0",
+    "chalk": "^4.1.2",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  }
+}

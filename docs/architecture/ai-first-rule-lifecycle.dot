@@ -1,0 +1,39 @@
+// AI-First §11 — Rule lifecycle. Flat draw.io style, 2-row serpentine (page-friendly aspect).
+// Render: dot -Tpng -Gdpi=300 docs/architecture/ai-first-rule-lifecycle.dot -o docs/architecture/ai-first-rule-lifecycle.png
+digraph rule_lifecycle {
+  rankdir=LR;
+  bgcolor="white";
+  splines=spline;
+  nodesep=0.35; ranksep=0.55;
+  node [shape=box, style="filled", fontname="Helvetica-Bold", fontcolor="white",
+        fontsize=22, penwidth=2.0, margin="0.30,0.20"];
+  edge [color="#2F2F2F", penwidth=2.2, arrowsize=1.0,
+        fontname="Helvetica", fontsize=17, fontcolor="#555555"];
+
+  // Row 1 pinned to one rank, Row 2 to the next
+  { rank=same; session; extract; active; reinf; }
+  { rank=same; proven; promote; team; inject; }
+
+  session [label="Session",     fillcolor="#4F86C6", color="#3A6BA5"];
+  extract [label="Extract",     fillcolor="#F2931E", color="#D67C00"];
+  active  [label="Active Rule", fillcolor="#FBBF24", color="#E0A800", fontcolor="#23445D"];
+  reinf   [label="Reinforce",   fillcolor="#8E44AD", color="#6F3686"];
+  proven  [label="Proven",      fillcolor="#4F86C6", color="#3A6BA5"];
+  promote [label="Promote",     fillcolor="#16A2B8", color="#0E7E90"];
+  team    [label="Team Rule",   fillcolor="#4CAF50", color="#3C9140"];
+  inject  [label="Injected into\nevery team prompt", fillcolor="#E8F5E9", color="#82B366", fontcolor="#2E5A1C", fontname="Helvetica-Bold"];
+  retired [label="Retired",     fillcolor="#E8453C", color="#C5352D"];
+
+  // intra-row flow (do not affect ranking)
+  session -> extract [constraint=false];
+  extract -> active  [constraint=false];
+  active  -> reinf   [constraint=false];
+  proven  -> promote [constraint=false];
+  promote -> team    [constraint=false];
+  team    -> inject  [constraint=false];
+
+  // wrap row1 → row2 (this edge sets the two ranks)
+  reinf -> proven [label="promote 15+", xlabel=""];
+  // retire branch
+  active -> retired [label="60d, <2", color="#E8453C", fontcolor="#C5352D", constraint=false];
+}

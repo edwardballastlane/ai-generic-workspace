@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"PROJ-2002 update the user profile endpoint with new fields"},"isMeta":false}
+{"type":"assistant","message":{"model":"claude-opus-4-7","usage":{"input_tokens":100,"output_tokens":80}}}

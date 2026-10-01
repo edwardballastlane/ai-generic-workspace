@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+
+# search-memory — Search past session memories
+# Usage:
+#   ./scripts/search-memory "keyword"                   # Full-text search
+#   ./scripts/search-memory --project prescriber-point  # Filter by project
+#   ./scripts/search-memory --recent 5                  # Last N sessions
+#   ./scripts/search-memory --project myapp --recent 3  # Combined filters
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+MEMORY_DIR="$ROOT_DIR/.ai-memory/sessions"
+INDEX_FILE="$ROOT_DIR/.ai-memory/index.yaml"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+SEARCH_TERM=""
+PROJECT_FILTER=""
+RECENT_COUNT=""
+
+# ─── Parse arguments ────────────────────────────────────────
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project)
+      PROJECT_FILTER="$2"
+      shift 2
+      ;;
+    --recent)
+      RECENT_COUNT="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: ./scripts/search-memory [options] [search-term]"
+      echo ""
+      echo "Options:"
+      echo "  --project <name>   Filter by project name"
+      echo "  --recent <N>       Show last N sessions"
+      echo "  -h, --help         Show this help"
+      echo ""
+      echo "Examples:"
+      echo "  ./scripts/search-memory \"race condition\""
+      echo "  ./scripts/search-memory --project my-app"
+      echo "  ./scripts/search-memory --recent 5"
+      echo "  ./scripts/search-memory --project my-app --recent 3"
+      exit 0
+      ;;
+    *)
+      SEARCH_TERM="$1"
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$SEARCH_TERM" ] && [ -z "$PROJECT_FILTER" ] && [ -z "$RECENT_COUNT" ]; then
+  echo "Usage: ./scripts/search-memory [--project <name>] [--recent <N>] [search-term]"
+  echo "Run with -h for help."
+  exit 1
+fi
+
+if [ ! -d "$MEMORY_DIR" ] || [ -z "$(ls -A "$MEMORY_DIR" 2>/dev/null)" ]; then
+  echo -e "${YELLOW}No session memories found.${NC}"
+  echo "Save one with: ./scripts/save-session-memory \"summary\""
+  exit 0
+fi
+
+# ─── Collect matching files ─────────────────────────────────
+MATCHES=()
+
+# Start with all session files sorted by date (newest first)
+while IFS= read -r file; do
+  MATCHES+=("$file")
+done < <(ls -t "$MEMORY_DIR"/*.md 2>/dev/null)
+
+# Filter by project
+if [ -n "$PROJECT_FILTER" ]; then
+  FILTERED=()
+  for file in "${MATCHES[@]}"; do
+    if grep -qi "project:.*$PROJECT_FILTER" "$file" 2>/dev/null; then
+      FILTERED+=("$file")
+    fi
+  done
+  MATCHES=("${FILTERED[@]+"${FILTERED[@]}"}")
+fi
+
+# Filter by search term
+if [ -n "$SEARCH_TERM" ]; then
+  FILTERED=()
+  for file in "${MATCHES[@]}"; do
+    if grep -qil "$SEARCH_TERM" "$file" 2>/dev/null; then
+      FILTERED+=("$file")
+    fi
+  done
+  MATCHES=("${FILTERED[@]+"${FILTERED[@]}"}")
+fi
+
+# Limit to recent N
+if [ -n "$RECENT_COUNT" ]; then
+  MATCHES=("${MATCHES[@]:0:$RECENT_COUNT}")
+fi
+
+# ─── Display results ────────────────────────────────────────
+if [ ${#MATCHES[@]} -eq 0 ]; then
+  echo -e "${YELLOW}No matching sessions found.${NC}"
+  exit 0
+fi
+
+echo -e "${BOLD}Found ${#MATCHES[@]} session(s):${NC}"
+echo ""
+
+for file in "${MATCHES[@]}"; do
+  BASENAME=$(basename "$file")
+  DATE=$(grep "^date:" "$file" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '"')
+  PROJECT=$(grep "^project:" "$file" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '"')
+  SUMMARY=$(grep "^# " "$file" 2>/dev/null | head -1 | sed 's/^# //')
+  WORKFLOW=$(grep "^workflow:" "$file" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '"')
+
+  echo -e "  ${CYAN}${DATE}${NC} ${GREEN}[${PROJECT}]${NC} ${BOLD}${SUMMARY}${NC}"
+  echo -e "  ${DIM}Workflow: ${WORKFLOW} | File: .ai-memory/sessions/${BASENAME}${NC}"
+
+  # Show matching lines if searching by term
+  if [ -n "$SEARCH_TERM" ]; then
+    CONTEXT=$(grep -in "$SEARCH_TERM" "$file" 2>/dev/null | head -3 | sed 's/^/    /')
+    if [ -n "$CONTEXT" ]; then
+      echo "$CONTEXT"
+    fi
+  fi
+  echo ""
+done

@@ -1,0 +1,50 @@
+// AI-First §10 — Per-prompt hook lifecycle (8 hook events, Node). Flat draw.io style.
+// Render: dot -Tpng -Gdpi=200 docs/architecture/ai-first-prompt-lifecycle.dot -o docs/architecture/ai-first-prompt-lifecycle.png
+digraph prompt_lifecycle {
+  rankdir=TB;
+  bgcolor="white";
+  splines=spline;
+  nodesep=0.28; ranksep=0.6;
+  node [shape=box, style="filled", fontname="Helvetica-Bold", fontcolor="white",
+        fontsize=18, penwidth=1.8, margin="0.22,0.16", height=0.7];
+  edge [color="#2F2F2F", penwidth=2.0, arrowsize=0.95,
+        fontname="Helvetica", fontsize=15, fontcolor="#555555"];
+
+  start   [label="SessionStart\nsession-start.js", fillcolor="#F2931E", color="#D67C00"];
+  prompt  [label="Developer prompt\nuser-prompt-dispatcher.js", fillcolor="#4F86C6", color="#3A6BA5"];
+
+  ctx     [label="inject-context-impl",  fillcolor="#E1D5F7", color="#9673A6", fontcolor="#4B2E83"];
+  rules   [label="inject-rules-impl",    fillcolor="#E1D5F7", color="#9673A6", fontcolor="#4B2E83"];
+  budget  [label="context-budget-impl",  fillcolor="#E1D5F7", color="#9673A6", fontcolor="#4B2E83"];
+
+  claude  [label="Claude responds", fillcolor="#7B61FF", color="#5E45D8"];
+
+  pre     [label="PreToolUse\npre-tool-use.js", fillcolor="#E8453C", color="#C5352D"];
+  precomp [label="PreCompact\npre-compact.js", fillcolor="#647687", color="#4E5D6B"];
+  stop    [label="Stop\nsession-stop.js", fillcolor="#647687", color="#4E5D6B"];
+  substop [label="SubagentStop\nsubagent-stop.js", fillcolor="#647687", color="#4E5D6B"];
+
+  tool    [label="Tool executes", fillcolor="#4CAF50", color="#3C9140"];
+  reject  [label="Rejected", fillcolor="#E8453C", color="#C5352D"];
+  post    [label="PostToolUse\npost-tool-use.js", fillcolor="#4CAF50", color="#3C9140"];
+
+  start  -> prompt [label="sync rules (once)"];
+  prompt -> ctx;
+  prompt -> rules;
+  prompt -> budget;
+  ctx    -> claude;
+  rules  -> claude;
+  budget -> claude;
+
+  claude -> pre     [label="tool use"];
+  claude -> precomp [label="compaction"];
+  claude -> stop    [label="session end"];
+  claude -> substop [label="agent done"];
+
+  pre  -> tool   [label="allowed"];
+  pre  -> reject [label="blocked"];
+  tool -> post;
+
+  { rank=same; ctx; rules; budget; }
+  { rank=same; pre; precomp; stop; substop; }
+}

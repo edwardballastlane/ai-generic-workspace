@@ -1,0 +1,196 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.pnpm-debug.log*
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User projects (keep private)
+agent/_projects/*
+!agent/_projects/.gitkeep
+
+# MCP configuration (contains secrets)
+.claude/.mcp.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Agent token caches (auto-managed, contain short-lived JWTs)
+.token-cache.json
+
+# Elevated credential stores (contain long-lived refresh tokens — never commit)
+.env.elevated
+
+# Build outputs
+dist/
+build/
+target/
+*.log
+
+# Compiled files
+*.class
+*.py[cod]
+
+# Package files
+*.jar
+
+# Unit test reports
+TEST*.xml
+
+# Documentation builds
+docs-dist/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# AI Memory (session history, lessons, audit logs — per-user except events)
+.ai-memory/*
+!.ai-memory/session-end-events.jsonl
+!.ai-memory/session-end-events-*.jsonl
+!.ai-memory/calibration-tiers.json
+# User-name alias map (folds git user.name variants onto one canonical user in
+# the token dashboard). Tracked so the whole team shares the same attribution.
+!.ai-memory/user-aliases.json
+# Jira story-points cache produced by `npm run jira:refresh` (pipeline-owned).
+# Tracked so teammates without Jira credentials see SP data via `git pull`.
+!.ai-memory/jira-story-points.json
+# Delivered-universe cache produced by `npm run jira:refresh-period` (pipeline-owned).
+# Tracked so the token dashboard's Delivery/coverage sections render without creds.
+!.ai-memory/jira-period-tickets.json
+# Team-member alias map (folds same-person Jira/session name variants onto the roster).
+# Tracked so the delivery rollup + team-member filter map identically for everyone/CI.
+!.ai-memory/team-aliases.json
+# Salary-free team roster + pre-AI baselines. team-report.md holds compensation and is
+# gitignored (local-only); this committed file carries only the non-sensitive fields the
+# dashboard needs so the Delivery/velocity sections + team-member filter work in CI.
+!.ai-memory/team-roster.json
+# AI sizing estimates produced by `set-ai-estimate`. Tracked (same rationale as story-points)
+# so the DEPLOYED token dashboard can render "AI Sizing Accuracy" — it needs both human SP and
+# AI estimates per ticket, and this cache was gitignored-by-default so the cloud build lacked it.
+!.ai-memory/ai-estimates.json
+# Team-shared memory export (observation chunks + manifest, written by
+# `npm run memory:export`). Tracked so teammates inherit project memory via `git pull`
+# + `npm run memory:import`. The live per-scope stores under .ai-memory/observations/
+# stay local and private.
+!.ai-memory/observations-export/
+!.ai-memory/observations-export/**
+# Workspace-declared sensitive-data patterns for the memory export gate. Tracked so
+# every teammate's export applies the same policy. See scripts/_lib/summary-quality.js.
+!.ai-memory/memory-policy.json
+
+# AI Session state (runtime only)
+.ai-session/
+
+# Phase 5: per-terminal session ID files — never committed
+.ai-session/cc-session-id
+.ai-session/hook-session-id
+
+# AI Snapshots (before/after data, NOT configs)
+.ai-snapshots/*-before.json
+.ai-snapshots/*-after.json
+.ai-snapshots/*-regressions.json
+
+# AI Project contexts (auto-generated, per-environment — except shared config)
+.ai-contexts/*
+!.ai-contexts/skill-project-map.json
+!.ai-contexts/knowledge
+!.ai-contexts/knowledge/*
+
+# AI Configuration (user-specific)
+.ai-config/*
+# ...except the upstream-port template. The local upstream.json carries a machine-specific
+# absolute path and stays ignored; the TEMPLATE is committed so `npm run drift:scan` has a
+# term list in a fresh clone and in CI. Without it the vocabulary gate is unenforceable by
+# anyone but its author — which is how project terms shipped in the first place.
+!.ai-config/upstream.example.json
+
+# Lane Sync local repo (git backend)
+.ai-sync/
+
+# Qdrant / embedding backups (large, regenerable — never commit)
+backups/
+
+# Service account keys and credentials — NEVER commit these.
+# Added after a GCP service_account key was almost pushed (history rewritten 2026-04-22).
+gen-lang-client-*.json
+*service-account*.json
+*service_account*.json
+*-credentials*.json
+credentials*.json
+*credentials.json
+*.pem
+*.p12
+
+# Self-improvement (user-specific learned rules and tracking)
+scripts/self-improvement/rules.json
+scripts/self-improvement/staged-changes/
+scripts/self-improvement/reflection-state.json
+scripts/self-improvement/skill-state.json
+scripts/self-improvement/effectiveness.json
+scripts/session-embedder/backups/
+.cache/
+
+# Backup files
+*.bak
+*.backup
+
+# Applications
+*.app
+*.exe
+*.war
+
+# Large media files
+*.mp4
+*.tiff
+*.avi
+*.flv
+*.mov
+*.wmv
+__pycache__/
+
+# Generated dashboards + their data caches (token dashboard, self-improvement,
+# combined index). Regenerate with `npm run tokens:dashboard` / `npm run self:dashboard`.
+# A team that wants the deployed dashboard to render from committed data can
+# un-ignore the specific files it needs (see scripts/self-dashboard-publish.js).
+.claude/visualizations/
+.claude/settings.local.json
+
+# Hook telemetry (local-only)
+.claude/logs/
+
+# Debug config (personal IDE settings — local only)
+.claude/debug-config.json
+
+# Scheduled-task runtime lock (transient)
+.claude/scheduled_tasks.lock
+
+# Playwright MCP cache
+.playwright-mcp/
+
+# Dashboard screenshots (ad-hoc)
+dashboard-*.png
+rules-dashboard-*.png
+
+# Local session vector store (VECTOR_BACKEND=local) — large, per-machine cache
+.claude/vector-store/
+# Local Pi runtime state
+.atl/
+
+.ai-memory/

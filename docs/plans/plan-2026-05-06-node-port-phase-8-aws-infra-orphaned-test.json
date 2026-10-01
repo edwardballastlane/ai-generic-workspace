@@ -1,0 +1,111 @@
+{
+  "epic": "phase-8-aws-infra-orphaned-test",
+  "spec": "docs/specs/spec-2026-05-06-node-port-phase-8-aws-infra-orphaned-test.md",
+  "branch": "feat/node-port-phase-8-aws-infra-orphaned-test",
+  "total_tasks": 6,
+  "total_acs": 20,
+  "total_waves": 3,
+  "max_parallelism": 4,
+  "critical_path_hours": 5.5,
+  "waves": [
+    {
+      "wave": 1,
+      "parallel": true,
+      "description": "four independent ports/cleanup",
+      "tasks": [
+        {
+          "key": "T1",
+          "summary": "Port deploy.sh to deploy.js (S3 PutObject + CloudFront invalidation; .env or env-var fallback)",
+          "owner": "deploy-impl",
+          "agent_type": "implementer",
+          "files_owned": ["infra/token-dashboard/deploy.js"],
+          "depends": [],
+          "estimate_hours": 1.5,
+          "acs": ["AC-4", "AC-5", "AC-6", "AC-7"]
+        },
+        {
+          "key": "T2",
+          "summary": "Port setup.sh to setup.js (STS account ID, S3 bucket+policy, CloudFront OAC+distribution; idempotency catch)",
+          "owner": "setup-impl",
+          "agent_type": "implementer",
+          "files_owned": ["infra/token-dashboard/setup.js"],
+          "depends": [],
+          "estimate_hours": 3,
+          "acs": ["AC-1", "AC-2", "AC-3"]
+        },
+        {
+          "key": "T3",
+          "summary": "Port teardown.sh to teardown.js (readline y/N, ETag dance disable+wait+delete, OAC delete, paginated S3 empty+delete)",
+          "owner": "teardown-impl",
+          "agent_type": "implementer",
+          "files_owned": ["infra/token-dashboard/teardown.js"],
+          "depends": [],
+          "estimate_hours": 3,
+          "acs": ["AC-8", "AC-9", "AC-10"]
+        },
+        {
+          "key": "T4",
+          "summary": "Add T5 idempotency + T7 UUID-gate test cases to reconcile-session-attribution.test.js; git rm orphaned bash test",
+          "owner": "orphaned-test-impl",
+          "agent_type": "implementer",
+          "files_owned": [
+            "tests/scripts/reconcile-session-attribution.test.js",
+            "tests/session-id-attribution.test.sh"
+          ],
+          "depends": [],
+          "estimate_hours": 1,
+          "acs": ["AC-15", "AC-16", "AC-17"]
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "parallel": false,
+      "description": "cross-cutting wiring (depends on T1+T2+T3)",
+      "tasks": [
+        {
+          "key": "T5",
+          "summary": "Add @aws-sdk/* deps + tokens:deploy/setup/teardown scripts; rewrite bitbucket-pipelines.yml deploy step (no python/pip/awscli); update CLAUDE.md to Phases 1-8",
+          "owner": "cross-cutting-impl",
+          "agent_type": "implementer",
+          "files_owned": [
+            "package.json",
+            "package-lock.json",
+            "bitbucket-pipelines.yml",
+            "CLAUDE.md"
+          ],
+          "depends": ["T1", "T2", "T3"],
+          "estimate_hours": 1,
+          "acs": ["AC-11", "AC-12", "AC-13", "AC-14", "AC-18", "AC-19"]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "parallel": true,
+      "description": "review + smoke (depends on T5)",
+      "tasks": [
+        {
+          "key": "T6-review",
+          "summary": "Pre-merge review against all 20 ACs",
+          "owner": "phase8-reviewer",
+          "agent_type": "reviewer",
+          "files_owned": [],
+          "depends": ["T5"],
+          "estimate_hours": 1.5,
+          "acs": ["all-20"]
+        },
+        {
+          "key": "T6-smoke",
+          "summary": "npm install + npm test + node --check + AC mapping + pipeline grep gate",
+          "owner": "phase8-smoke",
+          "agent_type": "tester",
+          "files_owned": [],
+          "depends": ["T5"],
+          "estimate_hours": 1.5,
+          "acs": ["AC-20"]
+        }
+      ]
+    }
+  ]
+}

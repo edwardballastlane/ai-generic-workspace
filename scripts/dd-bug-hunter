@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+# dd-bug-hunter — Fetch Datadog errors and auto-analyze root causes
+#
+# Integrates with Datadog MCP or API to fetch high-priority errors,
+# then analyzes root causes across the project codebase.
+#
+# Usage:
+#   ./scripts/dd-bug-hunter                      # Fetch and analyze top errors from last 24h
+#   ./scripts/dd-bug-hunter --hours 4            # Last 4 hours only
+#   ./scripts/dd-bug-hunter --service accounts   # Filter by service
+#   ./scripts/dd-bug-hunter --trace <TRACE_ID>   # Analyze a specific trace
+#   ./scripts/dd-bug-hunter --dry-run            # Fetch errors but don't create branches/PRs
+#   ./scripts/dd-bug-hunter --list               # Just list errors, no analysis
+#
+# Prerequisites:
+#   - Datadog MCP server configured in .mcp.json (DD_API_KEY, DD_APP_KEY)
+#   - OR: DD_API_KEY and DD_APP_KEY env vars for direct API access
+#   - Project symlinked in agent/_projects/
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Defaults
+HOURS=24
+SERVICE=""
+TRACE_ID=""
+DRY_RUN=false
+LIST_ONLY=false
+OUTPUT_DIR="$ROOT_DIR/.ai-session/bug-hunter"
+
+# Parse args
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --hours) HOURS="$2"; shift 2 ;;
+    --service) SERVICE="$2"; shift 2 ;;
+    --trace) TRACE_ID="$2"; shift 2 ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    --list) LIST_ONLY=true; shift ;;
+    -h|--help)
+      echo "dd-bug-hunter — Fetch Datadog errors and auto-analyze root causes"
+      echo ""
+      echo "Usage:"
+      echo "  ./scripts/dd-bug-hunter                      # Top errors, last 24h"
+      echo "  ./scripts/dd-bug-hunter --hours 4            # Last 4 hours"
+      echo "  ./scripts/dd-bug-hunter --service accounts   # Filter by service"
+      echo "  ./scripts/dd-bug-hunter --trace <TRACE_ID>   # Analyze specific trace"
+      echo "  ./scripts/dd-bug-hunter --dry-run            # Fetch only, no branches/PRs"
+      echo "  ./scripts/dd-bug-hunter --list               # List errors only"
+      echo ""
+      echo "Prerequisites:"
+      echo "  DD_API_KEY and DD_APP_KEY env vars (or .env file)"
+      echo "  Datadog MCP server in .mcp.json (optional, enhances analysis)"
+      exit 0
+      ;;
+    *) echo "Unknown option: $1"; exit 1 ;;
+  esac
+done
+
+# Load env if available
+if [ -f "$ROOT_DIR/.env" ]; then
+  set -a
+  grep -v '^#' "$ROOT_DIR/.env" | grep -v '^$' | while IFS='=' read -r key value; do
+    export "$key=$value"
+  done
+  set +a
+fi
+
+# Check Datadog credentials
+if [ -z "${DD_API_KEY:-}" ] || [ -z "${DD_APP_KEY:-}" ]; then
+  echo "Error: DD_API_KEY and DD_APP_KEY must be set"
+  echo ""
+  echo "Set them in .env or export them:"
+  echo "  export DD_API_KEY=your-api-key"
+  echo "  export DD_APP_KEY=your-app-key"
+  exit 1
+fi
+
+mkdir -p "$OUTPUT_DIR"
+
+# ── Input validation ──────────────────────────────────────────────────
+if ! [[ "$HOURS" =~ ^[0-9]+$ ]]; then
+  echo "Error: --hours must be a positive integer, got: $HOURS" >&2
+  exit 1
+fi
+
+if [ -n "$SERVICE" ] && ! [[ "$SERVICE" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Error: --service must be alphanumeric (with . _ -), got: $SERVICE" >&2
+  exit 1
+fi
+
+if [ -n "$TRACE_ID" ] && ! [[ "$TRACE_ID" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "Error: --trace must be alphanumeric (with . _ -), got: $TRACE_ID" >&2
+  exit 1
+fi
+
+# Compute time range
+NOW=$(date +%s)
+FROM=$((NOW - HOURS * 3600))
+
+echo "=== Datadog Bug Hunter ==="
+echo "Time range: last ${HOURS}h"
+[ -n "$SERVICE" ] && echo "Service filter: $SERVICE"
+[ -n "$TRACE_ID" ] && echo "Trace ID: $TRACE_ID"
+echo ""
+
+# ── Fetch errors from Datadog API ──────────────────────────────────────
+DD_SITE="${DD_SITE:-datadoghq.com}"
+DD_API="https://api.${DD_SITE}"
+
+if [ -n "$TRACE_ID" ]; then
+  # Fetch specific trace
+  echo "Fetching trace $TRACE_ID..."
+  RESPONSE=$(curl -s -X GET \
+    "${DD_API}/api/v2/apm/traces/${TRACE_ID}" \
+    -H "DD-API-KEY: ${DD_API_KEY}" \
+    -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" \
+    -H "Content-Type: application/json" 2>/dev/null)
+
+  echo "$RESPONSE" > "$OUTPUT_DIR/trace-${TRACE_ID}.json"
+  echo "Trace saved to $OUTPUT_DIR/trace-${TRACE_ID}.json"
+
+else
+  # Search for error logs
+  echo "Searching for error logs..."
+
+  QUERY="status:error"
+  [ -n "$SERVICE" ] && QUERY="$QUERY service:$SERVICE"
+
+  # Build JSON payload safely using jq
+  PAYLOAD=$(jq -n \
+    --arg query "$QUERY" \
+    --arg from "${FROM}000" \
+    --arg to "${NOW}000" \
+    '{filter: {query: $query, from: $from, to: $to}, sort: "-timestamp", page: {limit: 50}}')
+
+  RESPONSE=$(curl -s -X POST \
+    "${DD_API}/api/v2/logs/events/search" \
+    -H "DD-API-KEY: ${DD_API_KEY}" \
+    -H "DD-APPLICATION-KEY: ${DD_APP_KEY}" \
+    -H "Content-Type: application/json" \
+    -d "$PAYLOAD" 2>/dev/null)
+
+  echo "$RESPONSE" > "$OUTPUT_DIR/errors-$(date +%Y%m%d-%H%M%S).json"
+
+  # Parse and display error summary
+  ERROR_COUNT=$(echo "$RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    logs = data.get('data', [])
+    print(len(logs))
+except:
+    print('0')
+" 2>/dev/null)
+
+  echo "Found ${ERROR_COUNT} errors in the last ${HOURS}h"
+  echo ""
+
+  if [ "$ERROR_COUNT" = "0" ]; then
+    echo "No errors found. The system is healthy!"
+    exit 0
+  fi
+
+  # Group errors by message pattern
+  echo "=== Error Summary (grouped by pattern) ==="
+  echo ""
+  echo "$RESPONSE" | python3 -c "
+import sys, json
+from collections import Counter
+
+try:
+    data = json.load(sys.stdin)
+    logs = data.get('data', [])
+
+    # Group by error message (first 100 chars)
+    patterns = Counter()
+    services = {}
+    for log in logs:
+        attrs = log.get('attributes', {})
+        msg = attrs.get('message', 'unknown')[:100]
+        svc = attrs.get('service', 'unknown')
+        patterns[msg] += 1
+        services[msg] = svc
+
+    print(f'| Count | Service | Error Pattern |')
+    print(f'|-------|---------|---------------|')
+    for msg, count in patterns.most_common(20):
+        svc = services.get(msg, '?')
+        print(f'| {count:5} | {svc:7} | {msg} |')
+except Exception as e:
+    print(f'Failed to parse response: {e}')
+" 2>/dev/null
+
+  echo ""
+fi
+
+if $LIST_ONLY; then
+  echo "Errors listed. Use --trace <ID> to analyze a specific error."
+  exit 0
+fi
+
+# ── Analysis phase ─────────────────────────────────────────────────────
+echo ""
+echo "=== Root Cause Analysis ==="
+echo ""
+echo "Error data saved to: $OUTPUT_DIR/"
+echo ""
+
+if $DRY_RUN; then
+  echo "[dry-run] Would analyze errors and create fix branches."
+  echo ""
+  echo "To run full analysis with branch creation:"
+  echo "  ./scripts/dd-bug-hunter --hours $HOURS"
+  echo ""
+  echo "Or use Claude Code with the reliability-hunter agent:"
+  echo '  "Use the reliability-hunter agent to analyze the errors in .ai-session/bug-hunter/"'
+  exit 0
+fi
+
+echo "To analyze these errors with AI:"
+echo ""
+echo "  1. In Claude Code, run:"
+echo '     "Use the reliability-hunter agent to analyze the errors in .ai-session/bug-hunter/"'
+echo ""
+echo "  2. Or for a full agent team (parallel analysis):"
+echo '     "Create an agent team to analyze the top 5 errors in .ai-session/bug-hunter/'
+echo '      Spawn one reliability-hunter teammate per error."'
+echo ""
+echo "  3. For a single error trace:"
+echo "     ./scripts/dd-bug-hunter --trace <TRACE_ID>"
+echo '     "Use reliability-hunter to analyze .ai-session/bug-hunter/trace-<ID>.json"'

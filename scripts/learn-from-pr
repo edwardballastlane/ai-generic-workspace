@@ -1,0 +1,568 @@
+#!/usr/bin/env bash
+#
+# learn-from-pr — Extract learning rules from pull request review comments
+#
+# Usage:
+#   ./scripts/learn-from-pr 123
+#   ./scripts/learn-from-pr https://bitbucket.org/my-workspace/my-backend/pull-requests/123
+#   ./scripts/learn-from-pr --apply 123
+#
+# Options:
+#   --dry-run       Show extracted rules without saving (default)
+#   --apply         Append extracted rules to scripts/self-improvement/rules.json
+#   --project <p>   Override auto-detected project name
+#   --category <c>  Override default category (code-quality)
+#   -h, --help      Show this help
+#
+# Environment (from .env):
+#   ATLASSIAN_EMAIL       Your Atlassian account email
+#   ATLASSIAN_API_TOKEN   API token from id.atlassian.com
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+RULES_FILE="$ROOT_DIR/scripts/self-improvement/rules.json"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# Defaults
+MODE="dry-run"
+PROJECT_OVERRIDE=""
+CATEGORY="code-quality"
+PR_INPUT=""
+
+# ─── Dependency checks ─────────────────────────────────────────
+check_deps() {
+    local missing=()
+    command -v curl >/dev/null 2>&1 || missing+=("curl")
+    command -v jq   >/dev/null 2>&1 || missing+=("jq")
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo -e "${RED}Error: Missing required tools: ${missing[*]}${NC}" >&2
+        echo "Install them and try again." >&2
+        exit 1
+    fi
+}
+
+# ─── Parse arguments ───────────────────────────────────────────
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run)
+            MODE="dry-run"
+            shift
+            ;;
+        --apply)
+            MODE="apply"
+            shift
+            ;;
+        --project)
+            if [ -z "${2:-}" ]; then
+                echo -e "${RED}Error: --project requires a value${NC}" >&2
+                exit 1
+            fi
+            PROJECT_OVERRIDE="$2"
+            shift 2
+            ;;
+        --category)
+            if [ -z "${2:-}" ]; then
+                echo -e "${RED}Error: --category requires a value${NC}" >&2
+                exit 1
+            fi
+            CATEGORY="$2"
+            shift 2
+            ;;
+        -h|--help)
+            sed -n '2,/^$/{ s/^# //; s/^#//; p }' "$0"
+            exit 0
+            ;;
+        -*)
+            echo -e "${RED}Error: Unknown option: $1${NC}" >&2
+            echo "Run with -h for help." >&2
+            exit 1
+            ;;
+        *)
+            PR_INPUT="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$PR_INPUT" ]; then
+    echo -e "${RED}Error: No PR number or URL provided${NC}" >&2
+    echo "Usage: ./scripts/learn-from-pr [--apply] <pr-number|pr-url>" >&2
+    exit 1
+fi
+
+check_deps
+
+# ─── Load .env ─────────────────────────────────────────────────
+if [ -f "$ROOT_DIR/.env" ]; then
+    # shellcheck disable=SC1091
+    source "$ROOT_DIR/.env"
+fi
+
+# ─── Auto-detect project from CWD ──────────────────────────────
+detect_project() {
+    local cwd
+    cwd="$(pwd)"
+    local projects_dir="$ROOT_DIR/agent/_projects"
+
+    if [ -n "$PROJECT_OVERRIDE" ]; then
+        echo "$PROJECT_OVERRIDE"
+        return
+    fi
+
+    # Check if CWD is under a symlinked project
+    if [ -d "$projects_dir" ]; then
+        for link in "$projects_dir"/*/; do
+            link="${link%/}"
+            [ -L "$link" ] || continue
+            local target
+            target="$(readlink -f "$link")"
+            if [[ "$cwd" == "$target"* ]]; then
+                basename "$link"
+                return
+            fi
+        done
+    fi
+
+    # Fallback: try to match CWD basename to a known project config
+    local dir_name
+    dir_name="$(basename "$cwd")"
+    if [ -f "$ROOT_DIR/.ai-contexts/${dir_name}.yaml" ]; then
+        echo "$dir_name"
+        return
+    fi
+
+    echo ""
+}
+
+# ─── Detect git platform from project ──────────────────────────
+# Returns: "bitbucket" or "github"
+detect_platform() {
+    local project="$1"
+    local project_dir="$ROOT_DIR/agent/_projects/$project"
+
+    # Try reading git remote from the project symlink
+    if [ -L "$project_dir" ]; then
+        local remote
+        remote="$(cd "$project_dir" && git remote get-url origin 2>/dev/null || true)"
+        if [[ "$remote" == *"bitbucket.org"* ]]; then
+            echo "bitbucket"
+            return
+        elif [[ "$remote" == *"github.com"* ]]; then
+            echo "github"
+            return
+        fi
+    fi
+
+    # Try the CWD git remote
+    local remote
+    remote="$(git remote get-url origin 2>/dev/null || true)"
+    if [[ "$remote" == *"bitbucket.org"* ]]; then
+        echo "bitbucket"
+        return
+    elif [[ "$remote" == *"github.com"* ]]; then
+        echo "github"
+        return
+    fi
+
+    # Check .mcp.json for Atlassian integration as a hint
+    if [ -f "$ROOT_DIR/.mcp.json" ] && jq -e '.mcpServers.atlassian' "$ROOT_DIR/.mcp.json" >/dev/null 2>&1; then
+        echo "bitbucket"
+        return
+    fi
+
+    echo "unknown"
+}
+
+# ─── Extract workspace/repo slug from git remote ───────────────
+# Input: git remote URL (ssh or https)
+# Output: "workspace/repo"
+extract_bb_slug() {
+    local remote="$1"
+    # SSH: git@bitbucket.org:workspace/repo.git
+    # HTTPS: https://bitbucket.org/workspace/repo.git
+    echo "$remote" | sed -E 's#.*bitbucket\.org[:/]##; s#\.git$##'
+}
+
+extract_gh_slug() {
+    local remote="$1"
+    echo "$remote" | sed -E 's#.*github\.com[:/]##; s#\.git$##'
+}
+
+# ─── Parse PR input (number or URL) ────────────────────────────
+parse_pr_input() {
+    local input="$1"
+    local platform="$2"
+
+    # Pure number
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        echo "$input"
+        return
+    fi
+
+    # Bitbucket URL: https://bitbucket.org/<ws>/<repo>/pull-requests/<id>
+    if [[ "$input" =~ bitbucket\.org/.*/pull-requests/([0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return
+    fi
+
+    # GitHub URL: https://github.com/<owner>/<repo>/pull/<id>
+    if [[ "$input" =~ github\.com/.*/pull/([0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}"
+        return
+    fi
+
+    echo -e "${RED}Error: Could not parse PR number from input: $input${NC}" >&2
+    echo "Expected a number or a Bitbucket/GitHub PR URL." >&2
+    exit 1
+}
+
+# ─── Fetch Bitbucket PR comments ───────────────────────────────
+fetch_bb_comments() {
+    local workspace="$1"
+    local repo="$2"
+    local pr_id="$3"
+
+    if [ -z "${ATLASSIAN_EMAIL:-}" ] || [ -z "${ATLASSIAN_API_TOKEN:-}" ]; then
+        echo -e "${RED}Error: Atlassian credentials not configured${NC}" >&2
+        echo "" >&2
+        echo "Add to $ROOT_DIR/.env:" >&2
+        echo "  ATLASSIAN_EMAIL=\"your-email@company.com\"" >&2
+        echo "  ATLASSIAN_API_TOKEN=\"your-api-token\"" >&2
+        echo "" >&2
+        echo "Get your API token at: https://id.atlassian.com/manage-profile/security/api-tokens" >&2
+        exit 1
+    fi
+
+    local base_url="https://api.bitbucket.org/2.0/repositories/$workspace/$repo/pullrequests/$pr_id"
+
+    # Fetch inline comments (code review comments)
+    local comments_url="$base_url/comments?pagelen=100"
+    local all_comments="[]"
+    local page_url="$comments_url"
+
+    while [ -n "$page_url" ] && [ "$page_url" != "null" ]; do
+        local response
+        response=$(curl -s -w "\n%{http_code}" \
+            -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
+            -H "Accept: application/json" \
+            "$page_url")
+
+        local http_code
+        http_code=$(echo "$response" | tail -n1)
+        local body
+        body=$(echo "$response" | sed '$d')
+
+        if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo -e "${RED}Error: Failed to fetch PR comments (HTTP $http_code)${NC}" >&2
+            echo "$body" | jq -r '.error.message // .' 2>/dev/null >&2 || echo "$body" | head -10 >&2
+            exit 1
+        fi
+
+        # Merge this page's values into our accumulator
+        local page_values
+        page_values=$(echo "$body" | jq '[.values[] | {
+            content: (.content.raw // ""),
+            user: (.user.display_name // "unknown"),
+            inline: (if .inline then true else false end),
+            path: (.inline.path // null),
+            created: (.created_on // "")
+        }]')
+        all_comments=$(echo "$all_comments" "$page_values" | jq -s 'add')
+
+        # Get next page URL
+        page_url=$(echo "$body" | jq -r '.next // empty')
+    done
+
+    echo "$all_comments"
+}
+
+# ─── Fetch GitHub PR comments ──────────────────────────────────
+fetch_gh_comments() {
+    local owner="$1"
+    local repo="$2"
+    local pr_id="$3"
+
+    if ! command -v gh >/dev/null 2>&1; then
+        echo -e "${RED}Error: 'gh' CLI not installed. Install from https://cli.github.com/${NC}" >&2
+        exit 1
+    fi
+
+    # Fetch review comments (code-level)
+    local review_comments
+    review_comments=$(gh api "repos/$owner/$repo/pulls/$pr_id/comments" --paginate 2>/dev/null || echo "[]")
+
+    # Fetch issue-level comments
+    local issue_comments
+    issue_comments=$(gh api "repos/$owner/$repo/issues/$pr_id/comments" --paginate 2>/dev/null || echo "[]")
+
+    # Merge and normalize
+    echo "$review_comments" "$issue_comments" | jq -s 'add | [.[] | {
+        content: (.body // ""),
+        user: (.user.login // "unknown"),
+        inline: (if .path then true else false end),
+        path: (.path // null),
+        created: (.created_at // "")
+    }]'
+}
+
+# ─── Filter non-actionable comments ────────────────────────────
+filter_actionable() {
+    local comments_json="$1"
+
+    echo "$comments_json" | jq '[
+        .[] |
+        # Normalize content for matching
+        select(.content != null and .content != "") |
+
+        # Skip trivial / approval-style comments
+        select(
+            (.content | ascii_downcase | test("^\\s*(lgtm|looks good|nice|great|approved|\\+1|:thumbsup:|:shipit:|ship it|no comments|nit:?\\s*$)") | not) and
+            (.content | ascii_downcase | test("^\\s*(thanks|thank you|ty)!?\\s*$") | not) and
+
+            # Skip very short comments (< 20 chars) that are likely not actionable
+            (.content | length >= 20)
+        )
+    ]'
+}
+
+# ─── Generate random 8-char ID ─────────────────────────────────
+gen_id() {
+    # Use /dev/urandom for randomness, fallback to $RANDOM
+    if [ -r /dev/urandom ]; then
+        tr -dc 'a-z0-9' < /dev/urandom | head -c 8 2>/dev/null || printf '%08x' $RANDOM
+    else
+        printf '%08x' $RANDOM
+    fi
+}
+
+# ─── Format comments as rules ──────────────────────────────────
+format_as_rules() {
+    local comments_json="$1"
+    local pr_id="$2"
+    local category="$3"
+    local now
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    local count
+    count=$(echo "$comments_json" | jq 'length')
+
+    if [ "$count" -eq 0 ]; then
+        echo "[]"
+        return
+    fi
+
+    local rules="[]"
+    local i=0
+
+    while [ $i -lt "$count" ]; do
+        local comment_text
+        comment_text=$(echo "$comments_json" | jq -r ".[$i].content")
+        local comment_user
+        comment_user=$(echo "$comments_json" | jq -r ".[$i].user")
+        local comment_path
+        comment_path=$(echo "$comments_json" | jq -r ".[$i].path // empty")
+        local rule_id
+        rule_id=$(gen_id)
+
+        # Clean up the comment text: collapse whitespace, trim, strip markdown formatting
+        local clean_text
+        clean_text=$(echo "$comment_text" | \
+            sed 's/\r//g' | \
+            sed '/^```/,/^```/d' | \
+            sed 's/`[^`]*`//g' | \
+            tr '\n' ' ' | \
+            sed -E 's/\s+/ /g; s/^ //; s/ $//')
+
+        # Skip if cleaned text is too short
+        if [ "${#clean_text}" -lt 20 ]; then
+            i=$((i + 1))
+            continue
+        fi
+
+        # Truncate very long comments to keep rules concise
+        if [ "${#clean_text}" -gt 300 ]; then
+            clean_text="${clean_text:0:297}..."
+        fi
+
+        # Build the rule as JSON
+        local path_context=""
+        if [ -n "$comment_path" ]; then
+            path_context=" (in $comment_path)"
+        fi
+
+        local rule
+        rule=$(jq -n \
+            --arg id "$rule_id" \
+            --arg text "$clean_text" \
+            --arg source "pr-review:$pr_id" \
+            --arg now "$now" \
+            --arg cat "$category" \
+            '{
+                id: $id,
+                text: $text,
+                source: $source,
+                status: "proposed",
+                reinforcementCount: 0,
+                createdAt: $now,
+                lastReinforced: $now,
+                sourceSessionIds: [],
+                categories: [$cat]
+            }')
+
+        rules=$(echo "$rules" | jq --argjson rule "$rule" '. + [$rule]')
+        i=$((i + 1))
+    done
+
+    echo "$rules"
+}
+
+# ─── Apply rules to rules.json ─────────────────────────────────
+apply_rules() {
+    local new_rules="$1"
+
+    if [ ! -f "$RULES_FILE" ]; then
+        echo -e "${RED}Error: rules.json not found at $RULES_FILE${NC}" >&2
+        exit 1
+    fi
+
+    local count
+    count=$(echo "$new_rules" | jq 'length')
+    if [ "$count" -eq 0 ]; then
+        echo -e "${YELLOW}No rules to apply.${NC}"
+        return
+    fi
+
+    # Read existing rules, append new ones, write back
+    local existing
+    existing=$(cat "$RULES_FILE")
+    local merged
+    merged=$(echo "$existing" "$new_rules" | jq -s '.[0] + .[1]')
+
+    echo "$merged" | jq '.' > "$RULES_FILE"
+
+    echo -e "${GREEN}Applied $count new rules to rules.json${NC}"
+}
+
+# ─── Main ──────────────────────────────────────────────────────
+
+PROJECT="$(detect_project)"
+PLATFORM="$(detect_platform "${PROJECT:-unknown}")"
+
+echo -e "${BLUE}learn-from-pr${NC}"
+echo -e "  ${DIM}Project:  ${PROJECT:-<none detected>}${NC}"
+echo -e "  ${DIM}Platform: $PLATFORM${NC}"
+echo -e "  ${DIM}Mode:     $MODE${NC}"
+echo ""
+
+# Resolve workspace/repo slug
+BB_WORKSPACE=""
+BB_REPO=""
+GH_OWNER=""
+GH_REPO=""
+
+if [ "$PLATFORM" = "bitbucket" ]; then
+    local_remote="$(git remote get-url origin 2>/dev/null || true)"
+
+    # If project is detected, try its remote first
+    if [ -n "$PROJECT" ] && [ -L "$ROOT_DIR/agent/_projects/$PROJECT" ]; then
+        local_remote="$(cd "$ROOT_DIR/agent/_projects/$PROJECT" && git remote get-url origin 2>/dev/null || true)"
+    fi
+
+    if [ -z "$local_remote" ]; then
+        echo -e "${RED}Error: Could not determine Bitbucket workspace/repo from git remote${NC}" >&2
+        echo "Run this from a project directory or use --project <name>." >&2
+        exit 1
+    fi
+
+    slug="$(extract_bb_slug "$local_remote")"
+    BB_WORKSPACE="$(echo "$slug" | cut -d/ -f1)"
+    BB_REPO="$(echo "$slug" | cut -d/ -f2)"
+
+    echo -e "  ${DIM}Repo:     $BB_WORKSPACE/$BB_REPO${NC}"
+elif [ "$PLATFORM" = "github" ]; then
+    local_remote="$(git remote get-url origin 2>/dev/null || true)"
+
+    if [ -n "$PROJECT" ] && [ -L "$ROOT_DIR/agent/_projects/$PROJECT" ]; then
+        local_remote="$(cd "$ROOT_DIR/agent/_projects/$PROJECT" && git remote get-url origin 2>/dev/null || true)"
+    fi
+
+    if [ -z "$local_remote" ]; then
+        echo -e "${RED}Error: Could not determine GitHub owner/repo from git remote${NC}" >&2
+        exit 1
+    fi
+
+    slug="$(extract_gh_slug "$local_remote")"
+    GH_OWNER="$(echo "$slug" | cut -d/ -f1)"
+    GH_REPO="$(echo "$slug" | cut -d/ -f2)"
+
+    echo -e "  ${DIM}Repo:     $GH_OWNER/$GH_REPO${NC}"
+else
+    echo -e "${RED}Error: Could not detect git platform (bitbucket/github)${NC}" >&2
+    echo "Ensure you are in a project directory with a git remote, or use --project <name>." >&2
+    exit 1
+fi
+
+# Parse PR number
+PR_ID="$(parse_pr_input "$PR_INPUT" "$PLATFORM")"
+echo -e "  ${DIM}PR:       #$PR_ID${NC}"
+echo ""
+
+# Fetch comments
+echo -e "${BLUE}Fetching PR #$PR_ID review comments...${NC}"
+
+if [ "$PLATFORM" = "bitbucket" ]; then
+    RAW_COMMENTS="$(fetch_bb_comments "$BB_WORKSPACE" "$BB_REPO" "$PR_ID")"
+elif [ "$PLATFORM" = "github" ]; then
+    RAW_COMMENTS="$(fetch_gh_comments "$GH_OWNER" "$GH_REPO" "$PR_ID")"
+fi
+
+TOTAL_RAW=$(echo "$RAW_COMMENTS" | jq 'length')
+echo -e "  Found ${CYAN}$TOTAL_RAW${NC} total comments"
+
+# Filter to actionable
+ACTIONABLE="$(filter_actionable "$RAW_COMMENTS")"
+TOTAL_ACTIONABLE=$(echo "$ACTIONABLE" | jq 'length')
+echo -e "  Filtered to ${CYAN}$TOTAL_ACTIONABLE${NC} actionable comments"
+echo ""
+
+if [ "$TOTAL_ACTIONABLE" -eq 0 ]; then
+    echo -e "${YELLOW}No actionable review comments found in PR #$PR_ID.${NC}"
+    echo "Only substantive review feedback is extracted (LGTM, approvals, and trivial comments are skipped)."
+    exit 0
+fi
+
+# Format as rules
+RULES="$(format_as_rules "$ACTIONABLE" "$PR_ID" "$CATEGORY")"
+RULE_COUNT=$(echo "$RULES" | jq 'length')
+
+echo -e "${GREEN}Extracted $RULE_COUNT potential rules:${NC}"
+echo ""
+
+# Display rules
+echo "$RULES" | jq -r '.[] | "  [\(.id)] \(.text[0:120])\(if (.text | length) > 120 then "..." else "" end)"'
+echo ""
+
+# Output or apply
+if [ "$MODE" = "dry-run" ]; then
+    echo -e "${DIM}─── JSON output (pipe to jq or review) ───${NC}"
+    echo "$RULES" | jq '.'
+    echo ""
+    echo -e "${YELLOW}Dry run complete.${NC} To apply these rules:"
+    echo -e "  ./scripts/learn-from-pr --apply $PR_INPUT"
+elif [ "$MODE" = "apply" ]; then
+    apply_rules "$RULES"
+    echo ""
+    echo -e "${DIM}Rules added with status 'proposed'. Review with:${NC}"
+    echo -e "  jq '[.[] | select(.source == \"pr-review:$PR_ID\")]' $RULES_FILE"
+fi

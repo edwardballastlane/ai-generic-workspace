@@ -1,0 +1,9 @@
+# guard-population baseline — tamper-evident registry of security guards.
+# Line = `<file>\t<family>\t<direction>\t<sha>`. A new/dropped/altered guard fails CI.
+# Re-approve intentional guard changes with: npm run ratchet:guard -- --update
+scripts/hooks/pre-tool-use.js	destructive-rm	fail-closed	e98908df755186922602046c7e8edb17
+scripts/hooks/pre-tool-use.js	env-read	too-tight	9a671164fea9ba822a703a4182e26b34
+scripts/hooks/pre-tool-use.js	force-push	fail-closed	7e0c6693f770f7dc6e14c1d850e20e79
+scripts/hooks/pre-tool-use.js	git-push	fail-closed	d0349a53151acf4dce899c335e99e598
+scripts/hooks/pre-tool-use.js	secret-command	fail-closed	2523bd386daa695fd3fa4dcc36b2ee62
+scripts/hooks/pre-tool-use.js	secret-content	fail-closed	8f35888c3301b44fd9d167a1fdc7f77e

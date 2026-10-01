@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# snapshot-after — Compare metrics after changes against baseline
+# Usage: ./scripts/snapshot-after <project>
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/snapshot-compare" after "$@"

@@ -1,0 +1,5 @@
+# refusal-ratchet baseline — frozen legacy dead-end refusals (forbid-growth ratchet).
+# Each line is `<file>\t<message>`. A NEW dead-end refusal not listed here fails CI.
+# Prefer fixing the refusal (name a next step) or marking it
+# `// refusal:by-design <human-authority|world-action|operator-knowledge|environment>`
+# over adding it here. Regenerate with: npm run ratchet:refusal -- --update

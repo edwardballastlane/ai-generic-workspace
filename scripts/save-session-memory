@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+
+# save-session-memory — Save current session to long-term memory
+# Usage: ./scripts/save-session-memory "Brief summary of what was accomplished"
+#
+# Reads .ai-session/current.yaml and writes a markdown file with YAML
+# frontmatter to .ai-memory/sessions/. Appends entry to index.yaml.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+# Phase B: prefer the per-cc-session yaml at by-id/<sid>.yaml when
+# $CLAUDE_SESSION_ID is exported; falls back to current.yaml for back-compat.
+SESSION_FILE="$ROOT_DIR/.ai-session/current.yaml"
+if [ -n "${CLAUDE_SESSION_ID:-}" ] && [ -f "$ROOT_DIR/.ai-session/by-id/$CLAUDE_SESSION_ID.yaml" ]; then
+    SESSION_FILE="$ROOT_DIR/.ai-session/by-id/$CLAUDE_SESSION_ID.yaml"
+fi
+MEMORY_DIR="$ROOT_DIR/.ai-memory/sessions"
+INDEX_FILE="$ROOT_DIR/.ai-memory/index.yaml"
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+if [ ! -f "$SESSION_FILE" ]; then
+  echo -e "${YELLOW}No active session found at .ai-session/current.yaml${NC}"
+  exit 1
+fi
+
+SUMMARY="${1:-}"
+if [ -z "$SUMMARY" ]; then
+  echo "Usage: ./scripts/save-session-memory \"Summary of what was accomplished\""
+  echo ""
+  echo "Example:"
+  echo "  ./scripts/save-session-memory \"Fixed race condition in token refresh logic\""
+  exit 1
+fi
+
+mkdir -p "$MEMORY_DIR"
+
+# ─── Extract session data ───────────────────────────────────
+extract() {
+  grep "$1" "$SESSION_FILE" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '"' || true
+}
+
+SESSION_ID=$(extract "id:")
+WORKFLOW=$(extract "workflow:")
+PROJECT=$(extract "project:")
+TASK=$(extract "original:")
+STATUS=$(extract "status:")
+AGENTS_COMPLETED=$(grep "agents_completed:" "$SESSION_FILE" 2>/dev/null | sed 's/.*\[//' | sed 's/\].*//' || true)
+
+# Generate slug from summary
+SLUG=$(echo "$SUMMARY" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//' | sed 's/-$//' | head -c 60)
+DATE=$(date +%Y-%m-%d)
+FILENAME="${DATE}-${SLUG}.md"
+FILEPATH="$MEMORY_DIR/$FILENAME"
+
+# ─── Write session memory file ──────────────────────────────
+cat > "$FILEPATH" << EOF
+---
+date: "$DATE"
+session_id: "$SESSION_ID"
+project: "$PROJECT"
+workflow: "$WORKFLOW"
+task: "$TASK"
+status: "$STATUS"
+agents: [$AGENTS_COMPLETED]
+---
+
+# $SUMMARY
+
+## Task
+$TASK
+
+## Project
+$PROJECT
+
+## Workflow
+$WORKFLOW ($STATUS)
+
+## Agents Used
+$AGENTS_COMPLETED
+
+## Summary
+$SUMMARY
+
+## Decisions
+$(grep -A 20 "^decisions:" "$SESSION_FILE" 2>/dev/null | tail -n +2 | head -20 || echo "None recorded")
+
+## Outputs
+$(grep -A 10 "^outputs:" "$SESSION_FILE" 2>/dev/null | tail -n +2 | head -10 || echo "None recorded")
+EOF
+
+# ─── Update index ───────────────────────────────────────────
+if [ ! -f "$INDEX_FILE" ]; then
+  echo "# Session Memory Index" > "$INDEX_FILE"
+  echo "sessions:" >> "$INDEX_FILE"
+fi
+
+cat >> "$INDEX_FILE" << EOF
+  - date: "$DATE"
+    file: "$FILENAME"
+    project: "$PROJECT"
+    summary: "$SUMMARY"
+EOF
+
+echo -e "${GREEN}Session memory saved!${NC}"
+echo -e "  ${CYAN}File:${NC} .ai-memory/sessions/$FILENAME"
+echo -e "  ${CYAN}Index:${NC} .ai-memory/index.yaml"
+echo ""
+echo -e "  Search memories: ${GREEN}./scripts/search-memory \"keyword\"${NC}"

@@ -1,0 +1,171 @@
+// End-to-end view of the prompt → hook → rules → learning loop.
+// Render:   dot -Tsvg docs/architecture/prompt-hook-learning-system.dot -o docs/architecture/prompt-hook-learning-system.svg
+// Update:   keep edits in sync with .claude/settings.json and scripts/hooks/*
+
+digraph prompt_hook_learning_system {
+  rankdir=LR;
+  splines=spline;
+  compound=true;
+  fontname="Inter,Helvetica,sans-serif";
+  fontsize=11;
+  bgcolor="#FAFAFA";
+  node [fontname="Inter,Helvetica,sans-serif", fontsize=10, style="filled,rounded"];
+  edge [fontname="Inter,Helvetica,sans-serif", fontsize=9, color="#6B7280"];
+
+  // ── Node palette by role ─────────────────────────────────────────────
+  // Scripts / modules      — light blue       #DBEAFE
+  // Data stores            — light yellow     #FEF3C7
+  // External actors        — light green      #D1FAE5
+  // CLIs / tools           — light violet     #EDE9FE
+
+  // ── Runtime ──────────────────────────────────────────────────────────
+  subgraph cluster_runtime {
+    label="Runtime";
+    style="rounded,filled"; fillcolor="#F3F4F6"; color="#D1D5DB";
+    user       [label="User", shape=ellipse, fillcolor="#D1FAE5"];
+    cc         [label="Claude Code\n(CLI runtime)", shape=ellipse, fillcolor="#D1FAE5"];
+  }
+
+  // ── UserPromptSubmit hook chain ──────────────────────────────────────
+  subgraph cluster_prompt_hook {
+    label="UserPromptSubmit hook (.claude/settings.json)";
+    style="rounded,filled"; fillcolor="#EFF6FF"; color="#BFDBFE";
+    dispatcher [label="user-prompt-dispatcher.js\n(reads stdin once, fans out)", shape=box, fillcolor="#DBEAFE"];
+    ictx       [label="inject-context.sh\n(project detect, sidecar, nudge)", shape=box, fillcolor="#DBEAFE"];
+    irules     [label="inject-rules-impl.js\n(Jaccard + memory + sidecar bump)", shape=box, fillcolor="#DBEAFE"];
+    cbudget    [label="context-budget-impl.js\n(prompt counter, soft/hard warn)", shape=box, fillcolor="#DBEAFE"];
+    warmer     [label="semantic-rule-warmer.ts\n(detached, warms Qdrant cache)", shape=box, fillcolor="#DBEAFE", style="filled,rounded,dashed"];
+  }
+
+  // ── Data stores (per-session + per-workspace) ────────────────────────
+  subgraph cluster_data {
+    label="Data stores";
+    style="rounded,filled"; fillcolor="#FFFBEB"; color="#FDE68A";
+    rules_team   [label="rules-shared.json\n(team, git-tracked)", shape=cylinder, fillcolor="#FEF3C7"];
+    rules_perso  [label="rules.json\n(personal, gitignored)", shape=cylinder, fillcolor="#FEF3C7"];
+    eff          [label="effectiveness.json\n(per-rule fires + lastFired)", shape=cylinder, fillcolor="#FEF3C7"];
+    vevents      [label=".claude/logs/value-events.jsonl\n(per-invocation events)", shape=cylinder, fillcolor="#FEF3C7"];
+    sem_cache    [label=".ai-memory/semantic-rule-cache.json\n(prompt-hash → rule IDs, TTL 24h)", shape=cylinder, fillcolor="#FEF3C7"];
+    memory_idx   [label="MEMORY.md (index)\n+ memory/*.md (sections)", shape=cylinder, fillcolor="#FEF3C7"];
+    sidecar      [label=".ai-session/by-id/<sid>.json\n(per-CC-session counters)", shape=cylinder, fillcolor="#FEF3C7"];
+    cur_yaml     [label=".ai-session/current.yaml\n(active workflow session)", shape=cylinder, fillcolor="#FEF3C7"];
+    detected     [label=".ai-session/detected-project\n(cached project name)", shape=cylinder, fillcolor="#FEF3C7"];
+    pcount       [label=".ai-session/prompt-count\n(context-budget state)", shape=cylinder, fillcolor="#FEF3C7"];
+    proposals    [label=".ai-memory/memory-proposals.jsonl\n(pending save-to-memory signals)", shape=cylinder, fillcolor="#FEF3C7"];
+    sess_events  [label=".ai-memory/session-end-events.jsonl\n(tokens, cost — git-tracked)", shape=cylinder, fillcolor="#FEF3C7"];
+  }
+
+  // ── Stop hook (session end) ──────────────────────────────────────────
+  subgraph cluster_stop {
+    label="Stop hook (session end)";
+    style="rounded,filled"; fillcolor="#FDF4FF"; color="#E9D5FF";
+    stop       [label="session-stop.sh\n(tokens → JSONL, then fans out)", shape=box, fillcolor="#F3E8FF"];
+    embedder   [label="session-embedder/index.ts\n(chunks transcript → vectors)", shape=box, fillcolor="#F3E8FF", style="filled,rounded,dashed"];
+    msync      [label="memory-sync.ts\n(save-intent regex → proposals)", shape=box, fillcolor="#F3E8FF", style="filled,rounded,dashed"];
+  }
+
+  // ── External / optional infra ────────────────────────────────────────
+  subgraph cluster_external {
+    label="External infra";
+    style="rounded,filled"; fillcolor="#ECFDF5"; color="#A7F3D0";
+    qdrant     [label="Qdrant\n(rules + session-embeddings collections)", shape=ellipse, fillcolor="#D1FAE5"];
+    xenova     [label="Xenova/bge-small-en-v1.5\n(local embeddings, ~130MB)", shape=ellipse, fillcolor="#D1FAE5"];
+  }
+
+  // ── CLIs / review / visibility ───────────────────────────────────────
+  subgraph cluster_cli {
+    label="CLIs (manual / periodic)";
+    style="rounded,filled"; fillcolor="#F5F3FF"; color="#DDD6FE";
+    stats      [label="effectiveness-stats.ts\n(`npm run rules:stats`)", shape=box, fillcolor="#EDE9FE"];
+    mrev       [label="memory-review.ts\n(`npm run memory:review`)", shape=box, fillcolor="#EDE9FE"];
+    promote    [label="promote-rules.ts\n(`npm run rules:promote`)", shape=box, fillcolor="#EDE9FE"];
+    insights   [label="insight-extractor + maintenance\n(`npm run self:*`)", shape=box, fillcolor="#EDE9FE"];
+    statusline [label="statusline\n(r:N m:M s:K indicator)", shape=box, fillcolor="#EDE9FE"];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //   EDGES — colored by flow type
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ── Prompt flow (green) ──
+  user       -> cc         [color="#10B981", label=" types prompt"];
+  cc         -> dispatcher [color="#10B981", label=" stdin JSON\n{prompt, cwd, session_id}"];
+  dispatcher -> ictx       [color="#10B981", label=" spawn\nexecFileSync"];
+  dispatcher -> irules     [color="#10B981", label=" in-process"];
+  dispatcher -> cbudget    [color="#10B981", label=" in-process"];
+  dispatcher -> cc         [color="#10B981", label=" combined stdout\n(injected as context)"];
+
+  // ── Detached spawn (orange dashed) ──
+  irules -> warmer [color="#F97316", style=dashed, label=" spawn detached\nwhen topRules<2"];
+
+  // ── inject-context.sh reads/writes ──
+  ictx -> cur_yaml [color="#3B82F6", dir=both, label=" read bound sid\n/ status"];
+  ictx -> sidecar  [color="#F97316", label=" upsert\n.prompts, .project, .cwd"];
+  ictx -> detected [color="#F97316", label=" write\nif project found"];
+
+  // ── inject-rules-impl reads ──
+  irules -> rules_team  [color="#3B82F6", label=" read"];
+  irules -> rules_perso [color="#3B82F6", label=" read"];
+  irules -> memory_idx  [color="#3B82F6", label=" parse index +\nfollow file links"];
+  irules -> sem_cache   [color="#3B82F6", label=" read cached IDs"];
+  irules -> sidecar     [color="#3B82F6", label=" read .project"];
+  irules -> cur_yaml    [color="#3B82F6", label=" fallback\nproject lookup"];
+  irules -> detected    [color="#3B82F6", label=" fallback"];
+
+  // ── inject-rules-impl writes ──
+  irules -> eff      [color="#F97316", label=" atomic bump\nfires/lastFired/projects"];
+  irules -> vevents  [color="#F97316", label=" append\nrule_injection event"];
+  irules -> sidecar  [color="#F97316", label=" atomic bump\nrules_injected/memories_surfaced"];
+
+  // ── context-budget-impl ──
+  cbudget -> pcount [color="#3B82F6", dir=both, label=" read/write counter"];
+
+  // ── Semantic warmer ──
+  warmer -> xenova    [color="#3B82F6", label=" embed prompt"];
+  warmer -> qdrant    [color="#3B82F6", label=" search rules\ncollection"];
+  warmer -> sem_cache [color="#F97316", label=" write top IDs\nby promptHash"];
+
+  // ── Stop hook fan-out (purple) ──
+  cc       -> stop      [color="#8B5CF6", label=" Stop event\n+ transcript_path"];
+  stop     -> sess_events [color="#F97316", label=" append event\n(tokens, cost)"];
+  stop     -> embedder  [color="#8B5CF6", style=dashed, label=" nohup, gated on\nQdrant reachable"];
+  stop     -> msync     [color="#8B5CF6", style=dashed, label=" nohup, gated on\nMEMORY_SYNC_ENABLED"];
+  embedder -> xenova    [color="#3B82F6", label=" embed chunks"];
+  embedder -> qdrant    [color="#F97316", label=" upsert\nsession-embeddings"];
+  msync    -> proposals [color="#F97316", label=" append dedup'd\nsave-intent signals"];
+
+  // ── CLI reads (gray) ──
+  stats    -> eff        [color="#6B7280", label=" read"];
+  stats    -> vevents    [color="#6B7280", label=" read"];
+  stats    -> rules_team [color="#6B7280", label=" read"];
+  stats    -> rules_perso[color="#6B7280", label=" read"];
+  mrev     -> proposals  [color="#6B7280", dir=both, label=" interactive\naccept/reject"];
+  mrev     -> memory_idx [color="#F97316", label=" write memory file\n+ MEMORY.md line"];
+  promote  -> rules_perso[color="#6B7280", label=" scan for ≥15 fires"];
+  promote  -> rules_team [color="#F97316", label=" move entry\n(git-tracked)"];
+  insights -> vevents    [color="#6B7280", label=" mine"];
+  insights -> rules_perso[color="#F97316", label=" propose new rules"];
+  statusline -> sidecar  [color="#6B7280", label=" read counters\nr/m/s indicator"];
+
+  // ── Legend ───────────────────────────────────────────────────────────
+  subgraph cluster_legend {
+    label="Legend";
+    style="rounded,filled"; fillcolor="#FFFFFF"; color="#E5E7EB";
+    fontsize=10;
+    lg_prompt [label="prompt flow", shape=plaintext];
+    lg_read   [label="read", shape=plaintext];
+    lg_write  [label="write", shape=plaintext];
+    lg_learn  [label="session-end flow", shape=plaintext];
+    lg_cli    [label="CLI / manual", shape=plaintext];
+    lg_prompt_arrow [label="", shape=point, width=0.01];
+    lg_read_arrow   [label="", shape=point, width=0.01];
+    lg_write_arrow  [label="", shape=point, width=0.01];
+    lg_learn_arrow  [label="", shape=point, width=0.01];
+    lg_cli_arrow    [label="", shape=point, width=0.01];
+    lg_prompt -> lg_prompt_arrow [color="#10B981"];
+    lg_read   -> lg_read_arrow   [color="#3B82F6"];
+    lg_write  -> lg_write_arrow  [color="#F97316"];
+    lg_learn  -> lg_learn_arrow  [color="#8B5CF6"];
+    lg_cli    -> lg_cli_arrow    [color="#6B7280"];
+  }
+}

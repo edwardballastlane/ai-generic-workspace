@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lane - Inside the Orchestrator</title>
+    <meta name="description" content="Technical diagram showing how the AI orchestration system works internally">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    <style>
+        :root {
+            /* Background */
+            --bg-primary: #0a0a1a;
+            --bg-secondary: #0f0f2a;
+            --bg-card: #151530;
+            --bg-hover: #1a1a40;
+
+            /* System colors */
+            --color-orchestrator: #00D4FF;
+            --color-registry: #A855F7;
+            --color-session: #22C55E;
+            --color-context: #F97316;
+            --color-handoff: #EC4899;
+            --color-commands: #60A5FA;
+
+            /* Text */
+            --text-primary: #e8e8e8;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+
+            /* Effects */
+            --glow-blue: 0 0 20px rgba(0, 212, 255, 0.5);
+            --glow-purple: 0 0 20px rgba(168, 85, 247, 0.5);
+            --glow-green: 0 0 20px rgba(34, 197, 94, 0.5);
+            --glow-orange: 0 0 20px rgba(249, 115, 22, 0.5);
+            --glow-pink: 0 0 20px rgba(236, 72, 153, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Starfield background */
+        .starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--color-orchestrator), var(--color-registry));
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--color-orchestrator), var(--color-registry));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Main Diagram */
+        .diagram-container {
+            position: relative;
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 60px 40px;
+            margin-bottom: 48px;
+            overflow: hidden;
+        }
+
+        /* SVG Connection Lines */
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            stroke: var(--color-orchestrator);
+            stroke-width: 2;
+            fill: none;
+            opacity: 0.3;
+            stroke-dasharray: 8 4;
+            animation: dashFlow 1s linear infinite;
+        }
+
+        @keyframes dashFlow {
+            from { stroke-dashoffset: 12; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        /* System Grid */
+        .systems-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 30px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* System Cards */
+        .system-card {
+            background: var(--bg-card);
+            border: 2px solid var(--system-color);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .system-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--system-color);
+        }
+
+        .system-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--system-glow);
+            background: var(--bg-hover);
+        }
+
+        .system-card.expanded {
+            grid-column: span 1;
+        }
+
+        .system-card.expanded .system-details {
+            display: block;
+        }
+
+        .system-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+        }
+
+        .system-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--system-color);
+        }
+
+        .system-card p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .system-details {
+            display: none;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .system-details ul {
+            list-style: none;
+            font-size: 0.8rem;
+        }
+
+        .system-details li {
+            padding: 6px 0;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .system-details li::before {
+            content: '→';
+            color: var(--system-color);
+        }
+
+        /* Specific system colors */
+        .system-card[data-system="orchestrator"] {
+            --system-color: var(--color-orchestrator);
+            --system-glow: var(--glow-blue);
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .system-card[data-system="registry"] {
+            --system-color: var(--color-registry);
+            --system-glow: var(--glow-purple);
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .system-card[data-system="session"] {
+            --system-color: var(--color-session);
+            --system-glow: var(--glow-green);
+            grid-column: 3;
+            grid-row: 1;
+        }
+
+        .system-card[data-system="context"] {
+            --system-color: var(--color-context);
+            --system-glow: var(--glow-orange);
+            grid-column: 1;
+            grid-row: 3;
+        }
+
+        .system-card[data-system="handoff"] {
+            --system-color: var(--color-handoff);
+            --system-glow: var(--glow-pink);
+            grid-column: 3;
+            grid-row: 3;
+        }
+
+        .system-card[data-system="commands"] {
+            --system-color: var(--color-commands);
+            --system-glow: 0 0 20px rgba(96, 165, 250, 0.5);
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        /* Orchestrator special styling */
+        .system-card[data-system="orchestrator"] {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 212, 255, 0.1) 100%);
+            border-width: 3px;
+        }
+
+        .system-card[data-system="orchestrator"] .system-icon {
+            background: linear-gradient(135deg, var(--color-orchestrator), var(--color-registry));
+            font-size: 2rem;
+        }
+
+        /* Pulse animation for orchestrator */
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 255, 0.4); }
+            50% { box-shadow: 0 0 0 15px rgba(0, 212, 255, 0); }
+        }
+
+        .system-card[data-system="orchestrator"]::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 18px;
+            animation: pulse 2s infinite;
+        }
+
+        /* Data Flow Animation */
+        .data-particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--color-orchestrator);
+            box-shadow: 0 0 10px var(--color-orchestrator);
+            opacity: 0;
+            z-index: 3;
+        }
+
+        /* Lifecycle Timeline */
+        .lifecycle-section {
+            margin-bottom: 48px;
+        }
+
+        .lifecycle-section h2 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 1.3rem;
+            color: var(--text-primary);
+        }
+
+        .lifecycle-container {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 32px;
+        }
+
+        .lifecycle-timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .lifecycle-timeline::before {
+            content: '';
+            position: absolute;
+            top: 30px;
+            left: 5%;
+            right: 5%;
+            height: 4px;
+            background: linear-gradient(90deg,
+                var(--color-commands),
+                var(--color-orchestrator),
+                var(--color-registry),
+                var(--color-session),
+                var(--color-context),
+                var(--color-handoff),
+                var(--color-session)
+            );
+            border-radius: 2px;
+            z-index: 0;
+        }
+
+        .lifecycle-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+            flex: 1;
+        }
+
+        .lifecycle-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--step-color);
+            border: 3px solid var(--bg-primary);
+            box-shadow: 0 0 10px var(--step-color);
+            margin-bottom: 12px;
+        }
+
+        .lifecycle-step span {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-align: center;
+            max-width: 80px;
+        }
+
+        .lifecycle-step:nth-child(1) { --step-color: var(--color-commands); }
+        .lifecycle-step:nth-child(2) { --step-color: var(--color-orchestrator); }
+        .lifecycle-step:nth-child(3) { --step-color: var(--color-registry); }
+        .lifecycle-step:nth-child(4) { --step-color: var(--color-session); }
+        .lifecycle-step:nth-child(5) { --step-color: var(--color-context); }
+        .lifecycle-step:nth-child(6) { --step-color: var(--color-handoff); }
+        .lifecycle-step:nth-child(7) { --step-color: var(--color-session); }
+
+        /* Data Flow Section */
+        .dataflow-section {
+            margin-bottom: 48px;
+        }
+
+        .dataflow-section h2 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 1.3rem;
+        }
+
+        .dataflow-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .dataflow-card {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            border-left: 4px solid var(--flow-color);
+        }
+
+        .dataflow-card h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--flow-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dataflow-card p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .dataflow-card code {
+            background: var(--bg-card);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--flow-color);
+        }
+
+        .dataflow-card:nth-child(1) { --flow-color: var(--color-commands); }
+        .dataflow-card:nth-child(2) { --flow-color: var(--color-orchestrator); }
+        .dataflow-card:nth-child(3) { --flow-color: var(--color-context); }
+        .dataflow-card:nth-child(4) { --flow-color: var(--color-handoff); }
+
+        /* Code Block */
+        .code-section {
+            margin-bottom: 48px;
+        }
+
+        .code-section h2 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 1.3rem;
+        }
+
+        .code-block {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            background: var(--bg-card);
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot:nth-child(1) { background: #ff5f56; }
+        .code-dot:nth-child(2) { background: #ffbd2e; }
+        .code-dot:nth-child(3) { background: #27ca40; }
+
+        .code-title {
+            margin-left: 12px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .code-content {
+            padding: 20px;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+
+        .code-content .comment { color: var(--text-muted); }
+        .code-content .keyword { color: var(--color-registry); }
+        .code-content .string { color: var(--color-session); }
+        .code-content .function { color: var(--color-orchestrator); }
+        .code-content .number { color: var(--color-orange); }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 24px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        footer p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        footer a {
+            color: var(--color-orchestrator);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .systems-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+
+            .system-card {
+                grid-column: 1 !important;
+                grid-row: auto !important;
+            }
+
+            .lifecycle-timeline {
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .lifecycle-timeline::before {
+                top: 5%;
+                bottom: 5%;
+                left: 50%;
+                right: auto;
+                width: 4px;
+                height: auto;
+                transform: translateX(-50%);
+                background: linear-gradient(180deg,
+                    var(--color-commands),
+                    var(--color-orchestrator),
+                    var(--color-registry),
+                    var(--color-session),
+                    var(--color-context),
+                    var(--color-handoff),
+                    var(--color-session)
+                );
+                z-index: 0;
+            }
+
+            .lifecycle-step {
+                flex-direction: row;
+                gap: 16px;
+            }
+
+            .lifecycle-dot {
+                margin-bottom: 0;
+            }
+        }
+
+        /* Click instruction */
+        .click-hint {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Starfield Background -->
+    <div class="starfield" id="starfield"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="badge">Technical Deep Dive</div>
+            <h1>Inside the AI Orchestrator</h1>
+            <p class="subtitle">
+                How Lane coordinates agents, manages sessions, and preserves context behind the scenes.
+                This is what happens when you run a command.
+            </p>
+        </header>
+
+        <!-- Main Diagram -->
+        <div class="diagram-container">
+            <div class="systems-grid">
+                <!-- Agent Registry -->
+                <div class="system-card" data-system="registry" onclick="toggleExpand(this)">
+                    <div class="system-icon">📋</div>
+                    <h3>Agent Registry</h3>
+                    <p>Catalog of all 10 agents with capabilities, MCP services, and handoff paths.</p>
+                    <div class="system-details">
+                        <ul>
+                            <li>Stores agent definitions (name, phase, capabilities)</li>
+                            <li>Maps agents to workflow types</li>
+                            <li>Defines input/output contracts</li>
+                            <li>Specifies MCP service access</li>
+                            <li>Triggers: /agent, workflow start</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Session Handler -->
+                <div class="system-card" data-system="session" onclick="toggleExpand(this)">
+                    <div class="system-icon">💾</div>
+                    <h3>Session Handler</h3>
+                    <p>Persists workflow state to .ai-session/current.yaml across interactions.</p>
+                    <div class="system-details">
+                        <ul>
+                            <li>Creates session ID and timestamps</li>
+                            <li>Tracks current phase/agent</li>
+                            <li>Records workflow progress</li>
+                            <li>Logs all decisions made</li>
+                            <li>Stores handoff history</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Orchestrator (Center) -->
+                <div class="system-card" data-system="orchestrator" onclick="toggleExpand(this)">
+                    <div class="system-icon">🧠</div>
+                    <h3>Orchestrator</h3>
+                    <p>Central coordinator that analyzes tasks, routes workflows, activates agents, and manages transitions.</p>
+                    <div class="system-details">
+                        <ul>
+                            <li>Analyzes task → selects workflow type</li>
+                            <li>Determines starting phase and agent</li>
+                            <li>Activates agents with context injection</li>
+                            <li>Validates phase outputs</li>
+                            <li>Triggers automatic handoffs</li>
+                            <li>Coordinates MCP service access</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Context Manager -->
+                <div class="system-card" data-system="context" onclick="toggleExpand(this)">
+                    <div class="system-icon">🔄</div>
+                    <h3>Context Manager</h3>
+                    <p>Preserves and transfers context between agents across handoffs.</p>
+                    <div class="system-details">
+                        <ul>
+                            <li>Initializes session context</li>
+                            <li>Loads relevant context per agent</li>
+                            <li>Saves agent outputs and decisions</li>
+                            <li>Filters context by relevance level</li>
+                            <li>Archives completed sessions</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Slash Commands -->
+                <div class="system-card" data-system="commands" onclick="toggleExpand(this)">
+                    <div class="system-icon">⌨️</div>
+                    <h3>Slash Commands</h3>
+                    <p>User interface that triggers orchestrator actions via /work-ticket, /agent, /handoff.</p>
+                    <div class="system-details">
+                        <ul>
+                            <li>/work-ticket → Workflow Router</li>
+                            <li>/agent [name] → Agent Activator</li>
+                            <li>/handoff → Handoff Protocol</li>
+                            <li>/progress → Session Reader</li>
+                            <li>/phase [n] → Phase Jump</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Handoff Protocol -->
+                <div class="system-card" data-system="handoff" onclick="toggleExpand(this)">
+                    <div class="system-icon">🤝</div>
+                    <h3>Handoff Protocol</h3>
+                    <p>Formal transition procedure between agents with validation and context transfer.</p>
+                    <div class="system-details">
+                        <ul>
+                            <li>Validates completion criteria</li>
+                            <li>Generates handoff summary</li>
+                            <li>Transfers context to next agent</li>
+                            <li>Updates session state</li>
+                            <li>Supports rollback if rejected</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <p class="click-hint">Click any system to see details</p>
+        </div>
+
+        <!-- Lifecycle Timeline -->
+        <div class="lifecycle-section">
+            <h2>Session Lifecycle</h2>
+            <div class="lifecycle-container">
+                <div class="lifecycle-timeline">
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>User runs /work-ticket</span>
+                    </div>
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>Orchestrator analyzes task</span>
+                    </div>
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>Registry selects agents</span>
+                    </div>
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>Session initialized</span>
+                    </div>
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>Context injected to agent</span>
+                    </div>
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>Auto-handoff to next</span>
+                    </div>
+                    <div class="lifecycle-step">
+                        <div class="lifecycle-dot"></div>
+                        <span>Session archived</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Flow Explanations -->
+        <div class="dataflow-section">
+            <h2>What Happens Behind the Scenes</h2>
+            <div class="dataflow-grid">
+                <div class="dataflow-card">
+                    <h3>1. Command Parsing</h3>
+                    <p>
+                        When you type <code>/work-ticket "add feature"</code>, the command is parsed and the task description
+                        is passed to the Orchestrator's Workflow Router for analysis.
+                    </p>
+                </div>
+                <div class="dataflow-card">
+                    <h3>2. Workflow Selection</h3>
+                    <p>
+                        The Orchestrator analyzes trigger words (fix→Quick, create→BMAD, system→Enterprise) and selects
+                        the workflow type, then queries the Agent Registry for the agent sequence.
+                    </p>
+                </div>
+                <div class="dataflow-card">
+                    <h3>3. Context Injection</h3>
+                    <p>
+                        Before activating each agent, the Context Manager loads relevant history: previous decisions,
+                        phase outputs, constraints, and formats it into the agent's prompt.
+                    </p>
+                </div>
+                <div class="dataflow-card">
+                    <h3>4. Automatic Handoff</h3>
+                    <p>
+                        When an agent completes, the Handoff Protocol validates outputs, generates a summary, updates
+                        the session state, and immediately activates the next agent—no user action needed.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session State Example -->
+        <div class="code-section">
+            <h2>Session State File</h2>
+            <div class="code-block">
+                <div class="code-header">
+                    <div class="code-dot"></div>
+                    <div class="code-dot"></div>
+                    <div class="code-dot"></div>
+                    <span class="code-title">.ai-session/current.yaml</span>
+                </div>
+                <div class="code-content">
+<span class="keyword">session</span>:
+  <span class="keyword">id</span>: <span class="string">"2025-12-04-feature-001"</span>
+  <span class="keyword">workflow</span>: <span class="string">"full-bmad"</span>
+  <span class="keyword">status</span>: <span class="string">"active"</span>
+
+<span class="keyword">current</span>:
+  <span class="keyword">phase</span>: <span class="number">3</span>
+  <span class="keyword">agent</span>: <span class="string">"developer"</span>
+  <span class="keyword">status</span>: <span class="string">"in_progress"</span>
+
+<span class="keyword">progress</span>:
+  <span class="keyword">phases_completed</span>: [<span class="number">2</span>]
+  <span class="keyword">agents_completed</span>: [<span class="string">"architect"</span>, <span class="string">"designer"</span>]
+
+<span class="keyword">decisions</span>:  <span class="comment"># Preserved across agents</span>
+  - <span class="keyword">id</span>: <span class="string">"D001"</span>
+    <span class="keyword">agent</span>: <span class="string">"architect"</span>
+    <span class="keyword">decision</span>: <span class="string">"Use CSS variables for theming"</span>
+    <span class="keyword">rationale</span>: <span class="string">"Better performance, no runtime"</span>
+
+<span class="keyword">handoffs</span>:  <span class="comment"># Automatic transitions logged</span>
+  - <span class="keyword">from</span>: <span class="string">"architect"</span>
+    <span class="keyword">to</span>: <span class="string">"designer"</span>
+    <span class="keyword">summary</span>: <span class="string">"Architecture complete, ready for UI design"</span>
+  - <span class="keyword">from</span>: <span class="string">"designer"</span>
+    <span class="keyword">to</span>: <span class="string">"developer"</span>
+    <span class="keyword">summary</span>: <span class="string">"Design specs ready for implementation"</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>
+                <strong>Lane</strong> — <a href="index.html">Documentation</a> · <a href="workflow-diagram.html">Workflow Diagram</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Generate starfield
+        function createStarfield() {
+            const starfield = document.getElementById('starfield');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                star.style.width = Math.random() * 2 + 1 + 'px';
+                star.style.height = star.style.width;
+                starfield.appendChild(star);
+            }
+        }
+
+        // Toggle card expansion
+        function toggleExpand(card) {
+            const wasExpanded = card.classList.contains('expanded');
+
+            // Close all cards
+            document.querySelectorAll('.system-card').forEach(c => {
+                c.classList.remove('expanded');
+            });
+
+            // Toggle clicked card
+            if (!wasExpanded) {
+                card.classList.add('expanded');
+            }
+        }
+
+        // Initialize
+        createStarfield();
+    </script>
+</body>
+</html>

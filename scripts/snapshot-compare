@@ -1,0 +1,270 @@
+#!/usr/bin/env bash
+# snapshot-compare — Compare before/after performance snapshots
+#
+# Captures baseline metrics before a change, then compares after.
+# Integrates with the self-improvement system: auto-captures a reflection
+# if regression exceeds thresholds.
+#
+# Usage:
+#   ./scripts/snapshot-compare before <project>   # Capture baseline
+#   ./scripts/snapshot-compare after <project>     # Compare and report
+#   ./scripts/snapshot-compare status              # Show current snapshot state
+#
+# Metrics captured:
+#   - Backend: test suite timing, build time
+#   - Frontend: build time, bundle size (if applicable)
+#   - General: file count, line count in changed files
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+SNAPSHOT_DIR="$ROOT_DIR/.ai-session/snapshots"
+REGRESSION_THRESHOLD="${REGRESSION_THRESHOLD:-20}" # percent
+
+mkdir -p "$SNAPSHOT_DIR"
+
+usage() {
+  echo "Usage: ./scripts/snapshot-compare <before|after|status> [project]"
+  echo ""
+  echo "Commands:"
+  echo "  before <project>   Capture baseline metrics"
+  echo "  after <project>    Compare against baseline and report"
+  echo "  status             Show current snapshot state"
+  exit 1
+}
+
+# Resolve project path
+resolve_project() {
+  local project="$1"
+  local project_path="$ROOT_DIR/agent/_projects/$project"
+
+  if [ -L "$project_path" ]; then
+    readlink -f "$project_path"
+  elif [ -d "$project_path" ]; then
+    echo "$project_path"
+  else
+    echo ""
+  fi
+}
+
+# Capture metrics for a project
+capture_metrics() {
+  local project="$1"
+  local project_path
+  project_path=$(resolve_project "$project")
+
+  if [ -z "$project_path" ] || [ ! -d "$project_path" ]; then
+    echo "Project not found: $project"
+    echo "Available projects:"
+    ls "$ROOT_DIR/agent/_projects/" 2>/dev/null | grep -v .gitkeep
+    return 1
+  fi
+
+  local metrics_file="$SNAPSHOT_DIR/${project}.json"
+  local timestamp
+  timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  echo "Capturing metrics for $project at $project_path..."
+
+  # File metrics
+  local file_count
+  file_count=$(find "$project_path" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.tsx" -o -name "*.jsx" \) -not -path "*/node_modules/*" -not -path "*/dist/*" | wc -l)
+
+  local test_file_count
+  test_file_count=$(find "$project_path" -type f \( -name "*.spec.*" -o -name "*.test.*" \) -not -path "*/node_modules/*" | wc -l)
+
+  # Git metrics
+  local changed_files=0
+  local changed_lines=0
+  if [ -d "$project_path/.git" ] || git -C "$project_path" rev-parse --git-dir > /dev/null 2>&1; then
+    changed_files=$(git -C "$project_path" diff --name-only 2>/dev/null | wc -l)
+    changed_lines=$(git -C "$project_path" diff --stat 2>/dev/null | tail -1 | grep -oP '\d+ insertion' | grep -oP '\d+' || echo "0")
+  fi
+
+  # Build time (if package.json exists)
+  local build_time_ms=0
+  if [ -f "$project_path/package.json" ]; then
+    if grep -q '"build"' "$project_path/package.json" 2>/dev/null; then
+      local start_time
+      start_time=$(date +%s%N)
+      if (cd "$project_path" && npm run build --silent > /dev/null 2>&1); then
+        local end_time
+        end_time=$(date +%s%N)
+        build_time_ms=$(( (end_time - start_time) / 1000000 ))
+      fi
+    fi
+  fi
+
+  # Test time (if test script exists)
+  local test_time_ms=0
+  local test_pass=true
+  if [ -f "$project_path/package.json" ]; then
+    if grep -q '"test"' "$project_path/package.json" 2>/dev/null; then
+      local start_time
+      start_time=$(date +%s%N)
+      if (cd "$project_path" && npm test --silent > /dev/null 2>&1); then
+        local end_time
+        end_time=$(date +%s%N)
+        test_time_ms=$(( (end_time - start_time) / 1000000 ))
+      else
+        test_pass=false
+        local end_time
+        end_time=$(date +%s%N)
+        test_time_ms=$(( (end_time - start_time) / 1000000 ))
+      fi
+    fi
+  fi
+
+  # Write metrics
+  cat > "$metrics_file" << METRICS_EOF
+{
+  "project": "$project",
+  "timestamp": "$timestamp",
+  "phase": "$(cat "$ROOT_DIR/.ai-session/snapshot-phase" 2>/dev/null || echo "unknown")",
+  "files": {
+    "sourceCount": $file_count,
+    "testCount": $test_file_count,
+    "changedFiles": $changed_files,
+    "changedLines": $changed_lines
+  },
+  "build": {
+    "timeMs": $build_time_ms
+  },
+  "tests": {
+    "timeMs": $test_time_ms,
+    "passing": $test_pass
+  }
+}
+METRICS_EOF
+
+  echo "Metrics saved to $metrics_file"
+  cat "$metrics_file" | python3 -m json.tool 2>/dev/null || cat "$metrics_file"
+}
+
+# Compare before and after
+compare_snapshots() {
+  local project="$1"
+  local before_file="$SNAPSHOT_DIR/${project}-before.json"
+  local after_file="$SNAPSHOT_DIR/${project}.json"
+
+  if [ ! -f "$before_file" ]; then
+    echo "No baseline snapshot found. Run: ./scripts/snapshot-compare before $project"
+    return 1
+  fi
+
+  # Capture current state as "after"
+  echo "=== Capturing 'after' metrics ==="
+  echo "after" > "$ROOT_DIR/.ai-session/snapshot-phase"
+  capture_metrics "$project"
+  cp "$after_file" "$SNAPSHOT_DIR/${project}-after.json" || {
+    echo "Error: Failed to copy metrics file" >&2
+    return 1
+  }
+
+  echo ""
+  echo "=== Comparison: $project ==="
+  echo ""
+
+  # Compare using python — pass paths via env to avoid code injection
+  BEFORE_FILE="$before_file" \
+  AFTER_FILE="$SNAPSHOT_DIR/${project}-after.json" \
+  REGRESSION_FILE="$SNAPSHOT_DIR/${project}-regressions.json" \
+  PROJECT_NAME="$project" \
+  REG_THRESHOLD="$REGRESSION_THRESHOLD" \
+  python3 << 'COMPARE_EOF'
+import json, os
+
+before_file = os.environ['BEFORE_FILE']
+after_file = os.environ['AFTER_FILE']
+regression_file = os.environ['REGRESSION_FILE']
+project_name = os.environ['PROJECT_NAME']
+threshold = int(os.environ['REG_THRESHOLD'])
+
+with open(before_file) as f:
+    before = json.load(f)
+with open(after_file) as f:
+    after = json.load(f)
+
+def pct_change(old, new):
+    if old == 0: return 0
+    return round((new - old) / old * 100, 1)
+
+def fmt_change(label, old_val, new_val, unit="", invert=False):
+    change = pct_change(old_val, new_val)
+    direction = "regression" if (change > 0 and not invert) or (change < 0 and invert) else "improvement"
+    symbol = "+" if change > 0 else ""
+    flag = " !!!" if abs(change) > threshold else ""
+    print(f"  {label:.<30} {old_val}{unit} -> {new_val}{unit} ({symbol}{change}% {direction}){flag}")
+    return change
+
+regressions = []
+
+print("Files:")
+fmt_change("Source files", before['files']['sourceCount'], after['files']['sourceCount'])
+fmt_change("Test files", before['files']['testCount'], after['files']['testCount'], invert=True)
+
+if before['build']['timeMs'] > 0 or after['build']['timeMs'] > 0:
+    print("\nBuild:")
+    c = fmt_change("Build time", before['build']['timeMs'], after['build']['timeMs'], "ms")
+    if c > threshold:
+        regressions.append(f"Build time regressed by {c}%")
+
+if before['tests']['timeMs'] > 0 or after['tests']['timeMs'] > 0:
+    print("\nTests:")
+    c = fmt_change("Test time", before['tests']['timeMs'], after['tests']['timeMs'], "ms")
+    if c > threshold:
+        regressions.append(f"Test time regressed by {c}%")
+    if not after['tests']['passing'] and before['tests']['passing']:
+        regressions.append("Tests were passing before but are now failing")
+        print("  Tests: PASSING -> FAILING !!!")
+
+if regressions:
+    print(f"\n*** {len(regressions)} REGRESSION(S) DETECTED (threshold: {threshold}%) ***")
+    for r in regressions:
+        print(f"  - {r}")
+
+    with open(regression_file, 'w') as f:
+        json.dump({
+            'project': project_name,
+            'before': before,
+            'after': after,
+            'regressions': regressions,
+            'timestamp': after['timestamp']
+        }, f, indent=2)
+    print(f"\nRegression data saved for self-improvement integration.")
+else:
+    print("\nNo regressions detected.")
+COMPARE_EOF
+}
+
+# Main
+case "${1:-}" in
+  before)
+    [ -z "${2:-}" ] && usage
+    echo "before" > "$ROOT_DIR/.ai-session/snapshot-phase"
+    capture_metrics "$2"
+    cp "$SNAPSHOT_DIR/${2}.json" "$SNAPSHOT_DIR/${2}-before.json"
+    echo ""
+    echo "Baseline saved. Make your changes, then run: ./scripts/snapshot-compare after $2"
+    ;;
+  after)
+    [ -z "${2:-}" ] && usage
+    compare_snapshots "$2"
+    ;;
+  status)
+    echo "=== Snapshot Status ==="
+    if ls "$SNAPSHOT_DIR"/*.json > /dev/null 2>&1; then
+      for f in "$SNAPSHOT_DIR"/*.json; do
+        local_name=$(basename "$f" .json)
+        local_time=$(python3 -c "import json; print(json.load(open('$f')).get('timestamp','unknown'))" 2>/dev/null || echo "unknown")
+        echo "  $local_name: $local_time"
+      done
+    else
+      echo "  No snapshots found."
+    fi
+    ;;
+  *)
+    usage
+    ;;
+esac

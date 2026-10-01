@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lane - Workflow Diagram</title>
+    <meta name="description" content="Interactive diagram explaining how the Lane workspace works">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
+    <style>
+        :root {
+            /* Background colors */
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #0f3460;
+            --bg-highlight: #1f4287;
+
+            /* Text colors */
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0a0;
+            --text-muted: #6b6b6b;
+
+            /* Agent colors from registry */
+            --color-analyst: #3B82F6;
+            --color-product-owner: #8B5CF6;
+            --color-architect: #10B981;
+            --color-designer: #EC4899;
+            --color-tech-writer: #F97316;
+            --color-developer: #06B6D4;
+            --color-tester: #EAB308;
+            --color-reviewer: #EF4444;
+            --color-deployer: #14B8A6;
+            --color-documenter: #6B7280;
+
+            /* Phase colors */
+            --phase-1: #3B82F6;
+            --phase-2: #10B981;
+            --phase-3: #06B6D4;
+            --phase-4: #14B8A6;
+
+            /* Workflow colors */
+            --workflow-quick: #10B981;
+            --workflow-bmad: #3B82F6;
+            --workflow-enterprise: #8B5CF6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--color-architect), var(--color-developer));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Workflow Selector */
+        .workflow-selector {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 48px;
+            flex-wrap: wrap;
+        }
+
+        .workflow-btn {
+            padding: 12px 24px;
+            border: 2px solid var(--bg-card);
+            border-radius: 12px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .workflow-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .workflow-btn.active {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .workflow-btn[data-workflow="all"] {
+            border-color: var(--text-secondary);
+        }
+        .workflow-btn[data-workflow="all"].active {
+            background: var(--text-secondary);
+            color: var(--bg-primary);
+        }
+
+        .workflow-btn[data-workflow="quick"] {
+            border-color: var(--workflow-quick);
+        }
+        .workflow-btn[data-workflow="quick"].active {
+            background: var(--workflow-quick);
+            color: white;
+        }
+
+        .workflow-btn[data-workflow="bmad"] {
+            border-color: var(--workflow-bmad);
+        }
+        .workflow-btn[data-workflow="bmad"].active {
+            background: var(--workflow-bmad);
+            color: white;
+        }
+
+        .workflow-btn[data-workflow="enterprise"] {
+            border-color: var(--workflow-enterprise);
+        }
+        .workflow-btn[data-workflow="enterprise"].active {
+            background: var(--workflow-enterprise);
+            color: white;
+        }
+
+        .workflow-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Main Diagram */
+        .diagram-container {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 48px;
+            overflow-x: auto;
+        }
+
+        .phases-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            min-width: 900px;
+        }
+
+        /* Phase Cards */
+        .phase-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .phase-card.dimmed {
+            opacity: 0.3;
+            transform: scale(0.98);
+        }
+
+        .phase-card.highlighted {
+            border-color: var(--highlight-color, var(--phase-1));
+            box-shadow: 0 0 30px rgba(var(--highlight-rgb, 59, 130, 246), 0.3);
+        }
+
+        .phase-card:nth-child(1) { --phase-color: var(--phase-1); }
+        .phase-card:nth-child(2) { --phase-color: var(--phase-2); }
+        .phase-card:nth-child(3) { --phase-color: var(--phase-3); }
+        .phase-card:nth-child(4) { --phase-color: var(--phase-4); }
+
+        .phase-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--phase-color);
+        }
+
+        .phase-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--phase-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .phase-info h3 {
+            font-size: 1.2rem;
+            margin-bottom: 2px;
+        }
+
+        .phase-info span {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Agent Cards */
+        .agents-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .agent-card {
+            background: var(--bg-highlight);
+            border-radius: 12px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            cursor: default;
+            border-left: 4px solid var(--agent-color);
+        }
+
+        .agent-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .agent-card.dimmed {
+            opacity: 0.25;
+        }
+
+        .agent-card.highlighted {
+            background: var(--bg-primary);
+            box-shadow: 0 0 20px rgba(var(--agent-rgb, 255, 255, 255), 0.2);
+        }
+
+        .agent-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--agent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .agent-info h4 {
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+        }
+
+        .agent-info p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Agent Colors */
+        .agent-card[data-agent="analyst"] { --agent-color: var(--color-analyst); }
+        .agent-card[data-agent="product-owner"] { --agent-color: var(--color-product-owner); }
+        .agent-card[data-agent="architect"] { --agent-color: var(--color-architect); }
+        .agent-card[data-agent="designer"] { --agent-color: var(--color-designer); }
+        .agent-card[data-agent="tech-writer"] { --agent-color: var(--color-tech-writer); }
+        .agent-card[data-agent="developer"] { --agent-color: var(--color-developer); }
+        .agent-card[data-agent="tester"] { --agent-color: var(--color-tester); }
+        .agent-card[data-agent="reviewer"] { --agent-color: var(--color-reviewer); }
+        .agent-card[data-agent="deployer"] { --agent-color: var(--color-deployer); }
+        .agent-card[data-agent="documenter"] { --agent-color: var(--color-documenter); }
+
+        /* Flow Arrows */
+        .flow-arrows {
+            display: flex;
+            justify-content: space-around;
+            margin: -12px 0 24px;
+            min-width: 900px;
+            padding: 0 60px;
+        }
+
+        .flow-arrow {
+            width: 60px;
+            height: 24px;
+            position: relative;
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+        }
+
+        .flow-arrow.active {
+            opacity: 1;
+        }
+
+        .flow-arrow::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 20px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--phase-from, var(--phase-1)), var(--phase-to, var(--phase-2)));
+            transform: translateY(-50%);
+        }
+
+        .flow-arrow::after {
+            content: '';
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-left: 10px solid var(--phase-to, var(--phase-2));
+        }
+
+        .flow-arrow:nth-child(1) { --phase-from: var(--phase-1); --phase-to: var(--phase-2); }
+        .flow-arrow:nth-child(2) { --phase-from: var(--phase-2); --phase-to: var(--phase-3); }
+        .flow-arrow:nth-child(3) { --phase-from: var(--phase-3); --phase-to: var(--phase-4); }
+
+        /* Animated dashes for active flow */
+        @keyframes flowDash {
+            from { stroke-dashoffset: 24; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        .flow-arrow.animated::before {
+            background: repeating-linear-gradient(
+                90deg,
+                var(--phase-from) 0px,
+                var(--phase-from) 8px,
+                transparent 8px,
+                transparent 12px
+            );
+            animation: flowDash 0.5s linear infinite;
+            background-size: 24px 100%;
+        }
+
+        /* Legend */
+        .legend-section {
+            margin-bottom: 48px;
+        }
+
+        .legend-section h2 {
+            text-align: center;
+            margin-bottom: 24px;
+            font-size: 1.5rem;
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .legend-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .legend-card h3 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .legend-item span {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        /* Workflow Description */
+        .workflow-description {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 48px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .workflow-description h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+        }
+
+        .workflow-description p {
+            color: var(--text-secondary);
+            max-width: 600px;
+        }
+
+        .workflow-description .path {
+            font-family: monospace;
+            background: var(--bg-card);
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        /* Session Info */
+        .session-info {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 48px;
+        }
+
+        .session-info h2 {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .session-code {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+
+        .session-code .key {
+            color: var(--color-architect);
+        }
+
+        .session-code .value {
+            color: var(--color-developer);
+        }
+
+        .session-code .comment {
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 24px;
+            border-top: 1px solid var(--bg-card);
+            margin-top: 48px;
+        }
+
+        footer p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--color-developer);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .phases-row {
+                grid-template-columns: repeat(2, 1fr);
+                min-width: auto;
+            }
+
+            .flow-arrows {
+                display: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .phases-row {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .workflow-selector {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .workflow-btn {
+                width: 100%;
+                max-width: 280px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">🔄</div>
+            <h1>How Lane Works</h1>
+            <p class="subtitle">An interactive diagram showing the phase-based workflow, specialized agents, and smart routing system.</p>
+        </header>
+
+        <!-- Workflow Selector -->
+        <div class="workflow-selector">
+            <button class="workflow-btn active" data-workflow="all">
+                👁️ Show All
+            </button>
+            <button class="workflow-btn" data-workflow="quick">
+                ⚡ Quick Flow
+                <span class="workflow-badge">~5 min</span>
+            </button>
+            <button class="workflow-btn" data-workflow="bmad">
+                🔄 Full BMAD
+                <span class="workflow-badge">~15 min</span>
+            </button>
+            <button class="workflow-btn" data-workflow="enterprise">
+                🏢 Enterprise
+                <span class="workflow-badge">~30 min</span>
+            </button>
+        </div>
+
+        <!-- Workflow Description -->
+        <div class="workflow-description" id="workflow-description">
+            <h3>Select a Workflow Above</h3>
+            <p>Click on a workflow type to see which phases and agents are involved. The diagram will highlight the active path.</p>
+        </div>
+
+        <!-- Main Diagram -->
+        <div class="diagram-container">
+            <!-- Flow Arrows -->
+            <div class="flow-arrows">
+                <div class="flow-arrow" data-from="1" data-to="2"></div>
+                <div class="flow-arrow" data-from="2" data-to="3"></div>
+                <div class="flow-arrow" data-from="3" data-to="4"></div>
+            </div>
+
+            <!-- Phases -->
+            <div class="phases-row">
+                <!-- Phase 1: Analysis -->
+                <div class="phase-card" data-phase="1">
+                    <div class="phase-header">
+                        <div class="phase-number">1</div>
+                        <div class="phase-info">
+                            <h3>Analysis</h3>
+                            <span>Research & Requirements</span>
+                        </div>
+                    </div>
+                    <div class="agents-list">
+                        <div class="agent-card" data-agent="analyst" data-workflows="enterprise">
+                            <div class="agent-icon">🔍</div>
+                            <div class="agent-info">
+                                <h4>Analyst</h4>
+                                <p>Research & technical analysis</p>
+                            </div>
+                        </div>
+                        <div class="agent-card" data-agent="product-owner" data-workflows="enterprise">
+                            <div class="agent-icon">📊</div>
+                            <div class="agent-info">
+                                <h4>Product Owner</h4>
+                                <p>Features & priorities</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 2: Planning -->
+                <div class="phase-card" data-phase="2">
+                    <div class="phase-header">
+                        <div class="phase-number">2</div>
+                        <div class="phase-info">
+                            <h3>Planning</h3>
+                            <span>Design & Architecture</span>
+                        </div>
+                    </div>
+                    <div class="agents-list">
+                        <div class="agent-card" data-agent="architect" data-workflows="bmad,enterprise">
+                            <div class="agent-icon">🏗️</div>
+                            <div class="agent-info">
+                                <h4>Architect</h4>
+                                <p>System design & APIs</p>
+                            </div>
+                        </div>
+                        <div class="agent-card" data-agent="designer" data-workflows="bmad,enterprise">
+                            <div class="agent-icon">🎨</div>
+                            <div class="agent-info">
+                                <h4>Designer</h4>
+                                <p>UI/UX design</p>
+                            </div>
+                        </div>
+                        <div class="agent-card" data-agent="tech-writer" data-workflows="enterprise">
+                            <div class="agent-icon">📝</div>
+                            <div class="agent-info">
+                                <h4>Tech Writer</h4>
+                                <p>Documentation</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 3: Implementation -->
+                <div class="phase-card" data-phase="3">
+                    <div class="phase-header">
+                        <div class="phase-number">3</div>
+                        <div class="phase-info">
+                            <h3>Implementation</h3>
+                            <span>Code & Testing</span>
+                        </div>
+                    </div>
+                    <div class="agents-list">
+                        <div class="agent-card" data-agent="developer" data-workflows="quick,bmad,enterprise">
+                            <div class="agent-icon">💻</div>
+                            <div class="agent-info">
+                                <h4>Developer</h4>
+                                <p>Code implementation</p>
+                            </div>
+                        </div>
+                        <div class="agent-card" data-agent="tester" data-workflows="quick,bmad,enterprise">
+                            <div class="agent-icon">🧪</div>
+                            <div class="agent-info">
+                                <h4>Tester</h4>
+                                <p>Testing & validation</p>
+                            </div>
+                        </div>
+                        <div class="agent-card" data-agent="reviewer" data-workflows="enterprise">
+                            <div class="agent-icon">👁️</div>
+                            <div class="agent-info">
+                                <h4>Reviewer</h4>
+                                <p>Code review</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 4: Delivery -->
+                <div class="phase-card" data-phase="4">
+                    <div class="phase-header">
+                        <div class="phase-number">4</div>
+                        <div class="phase-info">
+                            <h3>Delivery</h3>
+                            <span>Deploy & Document</span>
+                        </div>
+                    </div>
+                    <div class="agents-list">
+                        <div class="agent-card" data-agent="deployer" data-workflows="quick,bmad,enterprise">
+                            <div class="agent-icon">🚀</div>
+                            <div class="agent-info">
+                                <h4>Deployer</h4>
+                                <p>CI/CD & deployment</p>
+                            </div>
+                        </div>
+                        <div class="agent-card" data-agent="documenter" data-workflows="bmad,enterprise">
+                            <div class="agent-icon">📚</div>
+                            <div class="agent-info">
+                                <h4>Documenter</h4>
+                                <p>Release notes & docs</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend Section -->
+        <div class="legend-section">
+            <h2>Legend & Reference</h2>
+            <div class="legend-grid">
+                <!-- Workflow Legend -->
+                <div class="legend-card">
+                    <h3>📋 Workflow Types</h3>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--workflow-quick);"></div>
+                            <span><strong>Quick Flow</strong> - Bug fixes (Phases 3→4)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--workflow-bmad);"></div>
+                            <span><strong>Full BMAD</strong> - Features (Phases 2→3→4)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--workflow-enterprise);"></div>
+                            <span><strong>Enterprise</strong> - Systems (Phases 1→2→3→4)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase Legend -->
+                <div class="legend-card">
+                    <h3>🔢 Phases</h3>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--phase-1);"></div>
+                            <span><strong>Phase 1</strong> - Analysis (Research)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--phase-2);"></div>
+                            <span><strong>Phase 2</strong> - Planning (Design)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--phase-3);"></div>
+                            <span><strong>Phase 3</strong> - Implementation (Code)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: var(--phase-4);"></div>
+                            <span><strong>Phase 4</strong> - Delivery (Deploy)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Commands Legend -->
+                <div class="legend-card">
+                    <h3>⌨️ Commands</h3>
+                    <div class="legend-items">
+                        <div class="legend-item">
+                            <code style="color: var(--color-architect);">/work-ticket</code>
+                            <span>Smart workflow routing</span>
+                        </div>
+                        <div class="legend-item">
+                            <code style="color: var(--color-architect);">/agent [name]</code>
+                            <span>Activate specific agent</span>
+                        </div>
+                        <div class="legend-item">
+                            <code style="color: var(--color-architect);">/progress</code>
+                            <span>View workflow status</span>
+                        </div>
+                        <div class="legend-item">
+                            <code style="color: var(--color-architect);">/handoff</code>
+                            <span>Manual agent transition</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Management -->
+        <div class="session-info">
+            <h2>📁 Session State Tracking</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                The workflow tracks progress in <code>.ai-session/current.yaml</code>:
+            </p>
+            <div class="session-code">
+<span class="key">session</span>:
+  <span class="key">id</span>: <span class="value">"2025-12-04-feature-001"</span>
+  <span class="key">workflow</span>: <span class="value">"full-bmad"</span>
+  <span class="key">status</span>: <span class="value">"active"</span>
+
+<span class="key">current</span>:
+  <span class="key">phase</span>: <span class="value">3</span>
+  <span class="key">agent</span>: <span class="value">"developer"</span>
+  <span class="key">status</span>: <span class="value">"in_progress"</span>
+
+<span class="key">progress</span>:
+  <span class="key">phases_completed</span>: <span class="value">[2]</span>
+  <span class="key">agents_completed</span>: <span class="value">["architect", "designer"]</span>
+
+<span class="key">handoffs</span>:  <span class="comment"># Automatic transitions</span>
+  - <span class="key">from</span>: <span class="value">"architect"</span> <span class="key">to</span>: <span class="value">"designer"</span>
+  - <span class="key">from</span>: <span class="value">"designer"</span> <span class="key">to</span>: <span class="value">"developer"</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>
+                <strong>Lane</strong>
+                <br>
+                <a href="index.html">← Back to Documentation</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Workflow definitions
+        const workflows = {
+            all: {
+                phases: [1, 2, 3, 4],
+                agents: ['analyst', 'product-owner', 'architect', 'designer', 'tech-writer', 'developer', 'tester', 'reviewer', 'deployer', 'documenter'],
+                title: 'All Workflows',
+                description: 'Showing all phases and agents. Select a specific workflow to see its path.',
+                path: 'Phases 1 → 2 → 3 → 4'
+            },
+            quick: {
+                phases: [3, 4],
+                agents: ['developer', 'tester', 'deployer'],
+                title: '⚡ Quick Flow',
+                description: 'For bug fixes and small changes. Goes directly to implementation.',
+                path: 'Developer → Tester → Deployer'
+            },
+            bmad: {
+                phases: [2, 3, 4],
+                agents: ['architect', 'designer', 'developer', 'tester', 'deployer', 'documenter'],
+                title: '🔄 Full BMAD',
+                description: 'For features and components. Includes planning and full delivery.',
+                path: 'Architect → Designer → Developer → Tester → Deployer → Documenter'
+            },
+            enterprise: {
+                phases: [1, 2, 3, 4],
+                agents: ['analyst', 'product-owner', 'architect', 'designer', 'tech-writer', 'developer', 'tester', 'reviewer', 'deployer', 'documenter'],
+                title: '🏢 Enterprise',
+                description: 'For large systems and architecture. Full analysis through delivery.',
+                path: 'All agents in sequence with parallel paths'
+            }
+        };
+
+        // DOM elements
+        const buttons = document.querySelectorAll('.workflow-btn');
+        const phaseCards = document.querySelectorAll('.phase-card');
+        const agentCards = document.querySelectorAll('.agent-card');
+        const flowArrows = document.querySelectorAll('.flow-arrow');
+        const descriptionEl = document.getElementById('workflow-description');
+
+        // Update diagram based on workflow
+        function selectWorkflow(workflow) {
+            const config = workflows[workflow];
+
+            // Update buttons
+            buttons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.workflow === workflow);
+            });
+
+            // Update description
+            descriptionEl.innerHTML = `
+                <h3>${config.title}</h3>
+                <p>${config.description}</p>
+                <div class="path">${config.path}</div>
+            `;
+
+            // Update phases
+            phaseCards.forEach(card => {
+                const phase = parseInt(card.dataset.phase);
+                if (workflow === 'all') {
+                    card.classList.remove('dimmed', 'highlighted');
+                } else {
+                    card.classList.toggle('dimmed', !config.phases.includes(phase));
+                    card.classList.toggle('highlighted', config.phases.includes(phase));
+                }
+            });
+
+            // Update agents
+            agentCards.forEach(card => {
+                const agent = card.dataset.agent;
+                if (workflow === 'all') {
+                    card.classList.remove('dimmed', 'highlighted');
+                } else {
+                    card.classList.toggle('dimmed', !config.agents.includes(agent));
+                    card.classList.toggle('highlighted', config.agents.includes(agent));
+                }
+            });
+
+            // Update flow arrows
+            flowArrows.forEach(arrow => {
+                const from = parseInt(arrow.dataset.from);
+                const to = parseInt(arrow.dataset.to);
+                const isActive = config.phases.includes(from) && config.phases.includes(to);
+                arrow.classList.toggle('active', isActive);
+                arrow.classList.toggle('animated', isActive && workflow !== 'all');
+            });
+        }
+
+        // Event listeners
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectWorkflow(btn.dataset.workflow);
+            });
+        });
+
+        // Initialize
+        selectWorkflow('all');
+    </script>
+</body>
+</html>

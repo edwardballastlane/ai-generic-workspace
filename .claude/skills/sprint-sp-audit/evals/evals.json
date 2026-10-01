@@ -1,0 +1,23 @@
+{
+  "skill_name": "sprint-sp-audit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "check my jira tickets for the current sprint and tell me which ones don't have story points. start with the done ones and try to match them to my local session data so we can estimate",
+      "expected_output": "Report of current-sprint tickets assigned to the user with empty customfield_10038, Done tickets listed first, each matched to deduped local session effort (sessions/lines/hours/cost) with a recommended SP anchored on the calibration file.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "which of my sprint tickets are missing estimates?",
+      "expected_output": "Same audit, loose phrasing. Pulls open-sprint tickets for currentUser() with no story points, prioritizes Done, recommends points.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "story-point my done tickets from this sprint that never got pointed, use the session history to back it up",
+      "expected_output": "Audit focused on Done unpointed tickets, recommendation per ticket grounded in matched session effort + calibration anchors; does not write to Jira without confirmation.",
+      "files": []
+    }
+  ]
+}

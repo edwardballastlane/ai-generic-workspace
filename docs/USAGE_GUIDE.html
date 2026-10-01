@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usage Guide - Lane</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-purple: #a371f7;
+            --accent-red: #f85149;
+            --accent-orange: #db6d28;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 0.5rem 0;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--accent-blue);
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .card h3 {
+            color: var(--text-primary);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.2rem;
+        }
+
+        .code-block {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+        }
+
+        .code-block .comment {
+            color: var(--text-secondary);
+        }
+
+        .code-block .command {
+            color: var(--accent-green);
+        }
+
+        .code-block .prompt {
+            color: var(--accent-yellow);
+        }
+
+        /* Quick Start Box */
+        .quick-start {
+            background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1));
+            border: 2px solid var(--accent-blue);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .quick-start h2 {
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+        }
+
+        .quick-start .code-block {
+            display: inline-block;
+            font-size: 1.2rem;
+            padding: 1rem 2rem;
+        }
+
+        .quick-start p {
+            color: var(--text-secondary);
+            margin-top: 1rem;
+        }
+
+        /* Workflow Sequences */
+        .workflow-sequence {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .workflow-sequence h4 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .workflow-flow {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .agent-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .flow-arrow {
+            color: var(--accent-blue);
+        }
+
+        /* Entry Points Table */
+        .entry-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .entry-table th,
+        .entry-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .entry-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .entry-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .entry-table code {
+            background: var(--bg-primary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .badge-quick { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+        .badge-full { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+        .badge-enterprise { background: rgba(163, 113, 247, 0.2); color: var(--accent-purple); }
+
+        /* Session State */
+        .session-preview {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+        }
+
+        .yaml-key {
+            color: var(--accent-blue);
+        }
+
+        .yaml-value {
+            color: var(--accent-green);
+        }
+
+        .yaml-string {
+            color: var(--accent-yellow);
+        }
+
+        /* MCP Services Grid */
+        .mcp-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .mcp-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .mcp-card h4 {
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .mcp-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .mcp-card small {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        /* Tips Grid */
+        .tips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .tip-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1.25rem;
+            border-left: 4px solid var(--accent-blue);
+        }
+
+        .tip-card.terminal {
+            border-left-color: var(--accent-green);
+        }
+
+        .tip-card.cursor {
+            border-left-color: var(--accent-purple);
+        }
+
+        .tip-card h4 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .tip-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* General Tips */
+        .general-tips {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        .general-tip {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .general-tip .icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .general-tip strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .general-tip p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        /* Troubleshooting */
+        .trouble-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .trouble-item .problem {
+            color: var(--accent-red);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .trouble-item .solution {
+            color: var(--text-secondary);
+        }
+
+        /* Prerequisites */
+        .prereq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .prereq-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .prereq-card h4 {
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .prereq-table {
+            width: 100%;
+            font-size: 0.9rem;
+        }
+
+        .prereq-table td {
+            padding: 0.25rem 0;
+        }
+
+        .prereq-table td:first-child {
+            color: var(--text-secondary);
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="GETTING_STARTED.html">Getting Started</a></li>
+            <li><a href="USAGE_GUIDE.html" class="active">Usage Guide</a></li>
+            <li><a href="VALIDATION_PROCESS.html">Validation Process</a></li>
+            <li><a href="COMMANDS.html">Commands</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>Usage Guide</h1>
+            <p>Step-by-step guidance for using the Lane workflow orchestrator</p>
+        </header>
+
+        <!-- Quick Start -->
+        <div class="quick-start">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+                <span class="prompt">/work-ticket "Your task description here"</span>
+            </div>
+            <p>That's it. The orchestrator analyzes your task and activates the right workflow.</p>
+        </div>
+
+        <!-- Prerequisites -->
+        <section class="card">
+            <h2>Prerequisites</h2>
+
+            <div class="prereq-grid">
+                <div class="prereq-card">
+                    <h4>&#9000; Option A: Claude Code CLI</h4>
+                    <table class="prereq-table">
+                        <tr>
+                            <td>Node.js</td>
+                            <td><strong style="color: var(--accent-yellow);">v20+</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Claude Code CLI</td>
+                            <td>Latest</td>
+                        </tr>
+                        <tr>
+                            <td>Git</td>
+                            <td>Any</td>
+                        </tr>
+                    </table>
+                    <div class="code-block" style="margin-top: 1rem;">
+                        <span class="command">npm install -g @anthropic-ai/claude-code</span>
+                    </div>
+                </div>
+
+                <div class="prereq-card">
+                    <h4>&#128187; Option B: Cursor IDE</h4>
+                    <table class="prereq-table">
+                        <tr>
+                            <td>Cursor IDE</td>
+                            <td>Latest</td>
+                        </tr>
+                        <tr>
+                            <td>Use</td>
+                            <td><strong>Cursor Chat</strong> </td>
+                        </tr>
+                        <tr>
+                            <td>Node.js</td>
+                            <td><strong style="color: var(--accent-yellow);">v20+</strong> (for MCP)</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Adding Projects -->
+        <section class="card">
+            <h2>Adding Projects</h2>
+            <p>Before starting work, add your project to the workspace. <strong>Git platform is auto-detected!</strong></p>
+
+            <div class="code-block">
+                <span class="comment"># Add existing project (symlinked, git platform auto-detected)</span><br>
+                <span class="command">./scripts/add-project ~/code/my-react-app</span><br><br>
+                <span class="comment"># Clone from GitHub (auto-detects: github)</span><br>
+                <span class="command">./scripts/add-project https://github.com/user/repo</span><br><br>
+                <span class="comment"># Clone from Bitbucket (auto-detects: bitbucket + workspace)</span><br>
+                <span class="command">./scripts/add-project https://bitbucket.org/mycompany/repo</span><br><br>
+                <span class="comment"># Clone from GitLab</span><br>
+                <span class="command">./scripts/add-project https://gitlab.com/user/repo</span><br><br>
+                <span class="comment"># Create new empty project</span><br>
+                <span class="command">./scripts/add-project my-new-project</span><br><br>
+                <span class="comment"># Verify</span><br>
+                <span class="command">./scripts/list-projects</span>
+            </div>
+
+            <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <strong>&#127760; Per-Project Git Platform:</strong> Git platform is auto-detected from remote URL and saved to <code>.ai-contexts/&lt;project&gt;.yaml</code>. Different projects can use different platforms!
+            </div>
+
+            <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+                <strong>&#128161; Auto-Symlink:</strong> Local paths are automatically symlinked - changes sync both ways. Use <code>--copy</code> flag if you need a separate copy.
+            </div>
+        </section>
+
+        <!-- Core Workflow -->
+        <section class="card">
+            <h2>Core Workflow</h2>
+
+            <h3>Step 1: Start a Workflow</h3>
+            <p>Choose how to begin based on your task:</p>
+
+            <table class="entry-table">
+                <thead>
+                    <tr>
+                        <th>Entry Point</th>
+                        <th>Command</th>
+                        <th>Best For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Smart Router</strong></td>
+                        <td><code>/work-ticket "task"</code></td>
+                        <td>Most tasks - AI decides workflow</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-quick">Bug Fix</span></td>
+                        <td><code>/work-ticket "fix bug..."</code></td>
+                        <td>Quick fixes (5 min)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-full">Feature</span></td>
+                        <td><code>/work-ticket "add feature..."</code></td>
+                        <td>New functionality (15 min)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-enterprise">System</span></td>
+                        <td><code>/work-ticket "build system..."</code></td>
+                        <td>Large projects (30 min)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Step 2: Follow the Agents</h3>
+            <p>The orchestrator activates agents in sequence:</p>
+
+            <div class="workflow-sequence">
+                <h4><span class="badge badge-quick">Quick Flow</span></h4>
+                <div class="workflow-flow">
+                    <span class="agent-badge">&#128187; Developer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#129514; Tester</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128640; Deployer</span>
+                </div>
+            </div>
+
+            <div class="workflow-sequence">
+                <h4><span class="badge badge-full">Full BMAD</span></h4>
+                <div class="workflow-flow">
+                    <span class="agent-badge">&#127959; Architect</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#127912; Designer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128187; Developer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#129514; Tester</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128065; Reviewer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128640; Deployer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128218; Documenter</span>
+                </div>
+            </div>
+
+            <div class="workflow-sequence">
+                <h4><span class="badge badge-enterprise">Enterprise</span></h4>
+                <div class="workflow-flow">
+                    <span class="agent-badge">&#128269; Analyst</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128202; Product Owner</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#127959; Architect</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#127912; Designer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128187; Developer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#129514; Tester</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128065; Reviewer</span>
+                    <span class="flow-arrow">&rarr;</span>
+                    <span class="agent-badge">&#128640; Deployer</span>
+                </div>
+            </div>
+
+            <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <strong>Agent Handoffs are Automatic:</strong>
+                <ul style="margin: 0.5rem 0 0 1.5rem; color: var(--text-secondary);">
+                    <li>Each agent completes their work</li>
+                    <li>Handoff summary appears in conversation</li>
+                    <li>Next agent activates immediately</li>
+                    <li>You just watch and provide input when asked</li>
+                </ul>
+            </div>
+
+            <h3>Step 3: Deliver Output</h3>
+            <p>The workflow ends when:</p>
+            <ol style="margin-left: 1.5rem; color: var(--text-secondary);">
+                <li><strong>Deployer</strong> creates a PR or deploys code</li>
+                <li><strong>Documenter</strong> finalizes documentation</li>
+                <li>Session status becomes "completed"</li>
+            </ol>
+        </section>
+
+        <!-- Session State -->
+        <section class="card">
+            <h2>Session State</h2>
+            <p>The orchestrator tracks state in <code>.ai-session/current.yaml</code>:</p>
+
+            <div class="session-preview">
+                <span class="yaml-key">session:</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">id:</span> <span class="yaml-string">"20260115-093045"</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">workflow:</span> <span class="yaml-string">"full-bmad"</span><br>
+                <br>
+                <span class="yaml-key">task:</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">original:</span> <span class="yaml-string">"Add dark mode toggle"</span><br>
+                <br>
+                <span class="yaml-key">current:</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">phase:</span> <span class="yaml-value">2</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">agent:</span> <span class="yaml-string">"architect"</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">agent_status:</span> <span class="yaml-string">"active"</span><br>
+                <br>
+                <span class="yaml-key">progress:</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">agents_completed:</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;- <span class="yaml-value">architect</span><br>
+                <br>
+                <span class="yaml-key">outputs:</span><br>
+                &nbsp;&nbsp;<span class="yaml-key">files:</span><br>
+                &nbsp;&nbsp;&nbsp;&nbsp;- <span class="yaml-string">"docs/architecture.md"</span>
+            </div>
+
+            <p style="margin-top: 1rem; color: var(--text-secondary);">
+                <strong>View current session:</strong>
+            </p>
+            <div class="code-block">
+                <span class="comment"># Terminal</span><br>
+                <span class="command">cat .ai-session/current.yaml</span><br><br>
+                <span class="comment"># Or use the command</span><br>
+                <span class="prompt">/progress</span>
+            </div>
+        </section>
+
+        <!-- MCP Services -->
+        <section class="card">
+            <h2>MCP Services</h2>
+            <p>The workspace includes 4 pre-configured MCP services:</p>
+
+            <div class="mcp-grid">
+                <div class="mcp-card">
+                    <h4>&#128218; Context7</h4>
+                    <p>Up-to-date documentation</p>
+                    <small>Used by: All agents</small>
+                </div>
+                <div class="mcp-card">
+                    <h4>&#127912; Figma</h4>
+                    <p>Design integration</p>
+                    <small>Used by: Designer, Developer</small>
+                </div>
+                <div class="mcp-card">
+                    <h4>&#127917; Playwright</h4>
+                    <p>Browser automation</p>
+                    <small>Used by: Tester</small>
+                </div>
+                <div class="mcp-card">
+                    <h4>&#129504; Sequential Thinking</h4>
+                    <p>Complex reasoning</p>
+                    <small>Used by: Architect, Analyst</small>
+                </div>
+            </div>
+
+            <p style="margin-top: 1rem; color: var(--text-secondary);">
+                <strong>Services start automatically</strong> when needed. No manual configuration required.
+            </p>
+        </section>
+
+        <!-- Tips & Best Practices -->
+        <section class="card">
+            <h2>Tips & Best Practices</h2>
+
+            <div class="tips-grid">
+                <div class="tip-card terminal">
+                    <h4>&#9000; For Terminal Users</h4>
+                    <p>Use Tab completion for commands. Check progress often with <code>/progress</code>. Trust automatic handoffs.</p>
+                </div>
+                <div class="tip-card cursor">
+                    <h4>&#128187; For Cursor IDE Users</h4>
+                    <p>Keep Claude panel open alongside code. Use inline suggestions with Tab. Watch file tree for new files.</p>
+                </div>
+            </div>
+
+            <h3>General Tips</h3>
+            <div class="general-tips">
+                <div class="general-tip">
+                    <div class="icon">&#127919;</div>
+                    <div>
+                        <strong>Be Specific</strong>
+                        <p>"Add JWT auth with refresh tokens" > "Add auth"</p>
+                    </div>
+                </div>
+                <div class="general-tip">
+                    <div class="icon">&#128172;</div>
+                    <div>
+                        <strong>Provide Context</strong>
+                        <p>Share constraints, preferences, existing patterns</p>
+                    </div>
+                </div>
+                <div class="general-tip">
+                    <div class="icon">&#127754;</div>
+                    <div>
+                        <strong>Let It Flow</strong>
+                        <p>Don't interrupt handoffs unless necessary</p>
+                    </div>
+                </div>
+                <div class="general-tip">
+                    <div class="icon">&#128065;</div>
+                    <div>
+                        <strong>Review PRs</strong>
+                        <p>Always review before merging</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Troubleshooting -->
+        <section class="card">
+            <h2>Troubleshooting</h2>
+
+            <div class="trouble-item">
+                <div class="problem">"No active session"</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="prompt">/work-ticket "your task"</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trouble-item">
+                <div class="problem">"Agent not responding"</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="comment"># Check current status</span><br>
+                        <span class="prompt">/progress</span><br><br>
+                        <span class="comment"># Manually activate agent if needed</span><br>
+                        <span class="prompt">/agent developer</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trouble-item">
+                <div class="problem">MCP Services Not Working</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="comment"># Verify Node.js</span><br>
+                        <span class="command">node --version</span>  <span class="comment"># Should be 18+</span><br><br>
+                        <span class="comment"># Check MCP config exists</span><br>
+                        <span class="command">cat .mcp.json</span><br><br>
+                        <span class="comment"># Restart Claude Code</span><br>
+                        <span class="command">exit</span><br>
+                        <span class="command">claude</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trouble-item">
+                <div class="problem">Session State Corrupted</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="comment"># Reset session</span><br>
+                        <span class="command">rm -rf .ai-session/</span><br>
+                        <span class="prompt">/work-ticket "your task"</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Spec-to-Implementation Pipeline -->
+        <section class="card">
+            <h2>Spec-to-Implementation Pipeline</h2>
+            <p>Lane can take you from idea to running code through a structured pipeline:</p>
+
+            <table class="entry-table">
+                <thead>
+                    <tr>
+                        <th>Command</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>/spec "task"</code></td>
+                        <td>Generate a structured PRD (Product Requirements Document)</td>
+                    </tr>
+                    <tr>
+                        <td><code>/breakdown &lt;spec-file&gt;</code></td>
+                        <td>Create a wave-based implementation plan from a spec</td>
+                    </tr>
+                    <tr>
+                        <td><code>/swarm-implement &lt;plan&gt;</code></td>
+                        <td>Execute the plan with parallel agent teams</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Example Flow</h3>
+            <div class="code-block">
+                <span class="comment"># 1. Generate a spec</span><br>
+                <span class="prompt">/spec "Add role-based access control"</span><br><br>
+                <span class="comment"># 2. Break it into waves of parallel tasks</span><br>
+                <span class="prompt">/breakdown docs/specs/rbac-spec.md</span><br><br>
+                <span class="comment"># 3. Execute with agent swarm</span><br>
+                <span class="prompt">/swarm-implement docs/plans/rbac-plan.md</span>
+            </div>
+
+            <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <strong>Structured artifacts:</strong> Each stage produces reviewable files (spec, plan) so you can adjust before moving to the next step.
+            </div>
+        </section>
+
+        <!-- Self-Improvement System -->
+        <section class="card">
+            <h2>Self-Improvement System</h2>
+            <p>Lane learns from every session and continuously improves through a rule-based system.</p>
+
+            <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <strong>Rules auto-injected on every prompt</strong> — 58 team rules + personal rules are applied automatically via a lightweight hook. No external services required.
+            </div>
+
+            <table class="entry-table">
+                <thead>
+                    <tr>
+                        <th>Command</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>npm run self:dashboard</code></td>
+                        <td>Interactive dashboard showing rules, stats, and pending proposals</td>
+                    </tr>
+                    <tr>
+                        <td><code>npm run rules:promote</code></td>
+                        <td>Promote a personal rule to a shared team rule</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Analysis Scripts -->
+        <section class="card">
+            <h2>Analysis Scripts</h2>
+            <p>Utility scripts for codebase analysis and workflow optimization:</p>
+
+            <table class="entry-table">
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>./scripts/deep-map &lt;project&gt;</code></td>
+                        <td>Deep codebase analysis — maps structure, dependencies, and patterns</td>
+                    </tr>
+                    <tr>
+                        <td><code>./scripts/wave-planner</code></td>
+                        <td>Task parallelization — groups tasks into concurrent waves</td>
+                    </tr>
+                    <tr>
+                        <td><code>./scripts/fresh-context</code></td>
+                        <td>Combat context rot — regenerates stale cached context</td>
+                    </tr>
+                    <tr>
+                        <td><code>./scripts/snapshot-compare</code></td>
+                        <td>Before/after performance comparison between snapshots</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Next Steps -->
+        <section class="card">
+            <h2>Next Steps</h2>
+
+            <table class="entry-table">
+                <tbody>
+                    <tr>
+                        <td><a href="VALIDATION_PROCESS.html" style="color: var(--accent-blue);">Validation Process</a></td>
+                        <td>Understanding quality gates and PR workflow</td>
+                    </tr>
+                    <tr>
+                        <td><a href="COMMANDS.html" style="color: var(--accent-blue);">Commands Reference</a></td>
+                        <td>All available slash commands</td>
+                    </tr>
+                    <tr>
+                        <td><a href="GETTING_STARTED.html" style="color: var(--accent-blue);">Getting Started</a></td>
+                        <td>Setup and first workflow</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <footer>
+        <p>Lane - <a href="COMMANDS.html">Commands</a> | <a href="GETTING_STARTED.html">Getting Started</a> | <a href="VALIDATION_PROCESS.html">Validation</a></p>
+        <p style="margin-top: 1rem;"><strong>Ready to start?</strong> Run <code>/work-ticket "Your first task"</code></p>
+    </footer>
+</body>
+</html>

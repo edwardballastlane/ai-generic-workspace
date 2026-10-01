@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# snapshot-before — Capture baseline metrics before making changes
+# Usage: ./scripts/snapshot-before <project>
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/snapshot-compare" before "$@"

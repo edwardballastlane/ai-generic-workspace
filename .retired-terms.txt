@@ -1,0 +1,7 @@
+# Retired terms — must NOT reappear in active source (scripts/**/*.{js,ts,cjs,mjs},
+# excluding tests). Checked by `npm run ratchet:retired` (in ratchet:all). Docs, specs,
+# tests, and logs may still reference these to explain/assert the retirement.
+# One term per line. Add a term here when you deprecate a field/concept and want it to stay gone.
+#
+# Intentionally empty: a retired term is a property of THIS codebase's history. Upstream's
+# list is not portable — its `last_message_preview` is still live here (scripts/hooks/subagent-stop.js).

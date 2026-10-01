@@ -1,0 +1,73 @@
+// Simplified overview of the prompt/hook/rules/learning system.
+// For the full version with every data store and edge, see
+// prompt-hook-learning-system.dot in this directory.
+// Render:  dot -Tsvg docs/architecture/prompt-hook-learning-system-overview.dot -o docs/architecture/prompt-hook-learning-system-overview.svg
+
+digraph overview {
+  rankdir=LR;
+  splines=spline;
+  bgcolor="#FAFAFA";
+  fontname="Inter,Helvetica,sans-serif";
+  fontsize=12;
+  node [fontname="Inter,Helvetica,sans-serif", fontsize=11, style="filled,rounded", margin="0.15,0.08"];
+  edge [fontname="Inter,Helvetica,sans-serif", fontsize=10, color="#6B7280"];
+
+  // ── Actors / runtime ─────────────────────────────────────────
+  user [label="User", shape=ellipse, fillcolor="#D1FAE5"];
+  cc   [label="Claude Code\n(CLI runtime)", shape=ellipse, fillcolor="#D1FAE5"];
+
+  // ── UserPromptSubmit: dispatcher + what it injects ───────────
+  subgraph cluster_prompt {
+    label="Every prompt";
+    style="rounded,filled"; fillcolor="#EFF6FF"; color="#BFDBFE";
+    fontsize=11;
+    dispatcher [label="user-prompt-\ndispatcher.js", shape=box, fillcolor="#DBEAFE"];
+    inject     [label="Injects one block per prompt:\n• project context\n• rules (Jaccard + semantic cache)\n• memories from MEMORY.md\n• context-budget warning", shape=box, fillcolor="#DBEAFE"];
+  }
+
+  // ── Stop hook: learning loop ─────────────────────────────────
+  subgraph cluster_stop {
+    label="Session end";
+    style="rounded,filled"; fillcolor="#FDF4FF"; color="#E9D5FF";
+    fontsize=11;
+    stop     [label="session-stop.sh", shape=box, fillcolor="#F3E8FF"];
+    learn    [label="Detached fan-out:\n• transcript → Qdrant\n• save-intent → proposals\n• token/cost → JSONL", shape=box, fillcolor="#F3E8FF"];
+  }
+
+  // ── Human-in-the-loop review / visibility ────────────────────
+  subgraph cluster_tools {
+    label="Manual / periodic";
+    style="rounded,filled"; fillcolor="#F5F3FF"; color="#DDD6FE";
+    fontsize=11;
+    stats  [label="npm run rules:stats\n(top / stale / never-fired)", shape=box, fillcolor="#EDE9FE"];
+    review [label="npm run memory:review\n(approve proposals → MEMORY.md)", shape=box, fillcolor="#EDE9FE"];
+    promote [label="npm run rules:promote-apply\n(personal → team, git-tracked)", shape=box, fillcolor="#EDE9FE"];
+  }
+
+  // ── Flows ────────────────────────────────────────────────────
+  user        -> cc         [color="#10B981", label=" prompt"];
+  cc          -> dispatcher [color="#10B981", label=" UserPromptSubmit"];
+  dispatcher  -> inject     [color="#10B981"];
+  inject      -> cc         [color="#10B981", label=" stdout → context"];
+
+  cc          -> stop       [color="#8B5CF6", label=" Stop"];
+  stop        -> learn      [color="#8B5CF6"];
+
+  learn       -> review     [color="#6B7280", style=dashed, label=" proposals\naccrue"];
+  inject      -> stats      [color="#6B7280", style=dashed, label=" fires logged\nto effectiveness.json"];
+  review      -> inject     [color="#F97316", style=dashed, label=" accepted memories\nsurface on next prompt"];
+  stats       -> promote    [color="#6B7280", style=dashed, label=" informs\nwhich to promote"];
+
+  // ── Legend ───────────────────────────────────────────────────
+  {
+    rank=sink;
+    lg [label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="2">
+        <TR><TD ALIGN="LEFT"><FONT COLOR="#10B981">━</FONT> prompt flow</TD></TR>
+        <TR><TD ALIGN="LEFT"><FONT COLOR="#8B5CF6">━</FONT> session-end flow</TD></TR>
+        <TR><TD ALIGN="LEFT"><FONT COLOR="#F97316">━</FONT> write (feeds next prompt)</TD></TR>
+        <TR><TD ALIGN="LEFT"><FONT COLOR="#6B7280">━</FONT> manual / periodic</TD></TR>
+      </TABLE>
+    >, shape=plaintext, fillcolor="#FFFFFF"];
+  }
+}

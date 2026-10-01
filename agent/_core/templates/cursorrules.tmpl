@@ -1,0 +1,36 @@
+# Project Rules — {{PROJECT_NAME}}
+
+## Self-Learning Protocol (Automatic — DO NOT skip)
+
+### On Start
+Before any work, run this command and apply the output as rules:
+```bash
+./scripts/load-lessons {{PROJECT_NAME}}
+```
+
+### During Work — MANDATORY Checkpoints
+At every natural checkpoint, evaluate:
+1. Was I corrected by the user? → Capture lesson (severity: high)
+2. Did a build/test fail from unknown convention? → Capture lesson (severity: critical)
+3. Did I discover a reusable project pattern? → Capture lesson (severity: medium)
+
+Capture IMMEDIATELY when it happens — do NOT batch at the end:
+```bash
+./scripts/capture-lesson --project {{PROJECT_NAME}} --category <category> --severity <level> "lesson text"
+```
+Categories: code-quality, security, testing, architecture, git, performance
+
+### Before Git Commit/Push — MANDATORY
+Run this before every `git commit` or `git push`:
+```bash
+./scripts/check-lessons --trigger git-commit
+```
+If it outputs a reminder, capture pending lessons BEFORE committing.
+
+### On Completion
+```bash
+./scripts/check-lessons --trigger session-end
+./scripts/save-session-memory "Brief summary"
+```
+
+{{LESSONS_BLOCK}}

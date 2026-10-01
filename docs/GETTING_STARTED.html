@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started - Lane</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-purple: #a371f7;
+            --accent-red: #f85149;
+            --accent-orange: #db6d28;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 0.5rem 0;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--accent-blue);
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h3 {
+            color: var(--text-primary);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.2rem;
+        }
+
+        /* Environment Comparison */
+        .env-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .env-card {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: border-color 0.3s, transform 0.2s;
+        }
+
+        .env-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-4px);
+        }
+
+        .env-card.terminal {
+            border-top: 4px solid var(--accent-green);
+        }
+
+        .env-card.cursor {
+            border-top: 4px solid var(--accent-purple);
+        }
+
+        .env-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .env-card h3 {
+            margin: 0 0 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .env-card .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .feature-list li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-list li::before {
+            content: "";
+            color: var(--accent-green);
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+        }
+
+        .code-block .comment {
+            color: var(--text-secondary);
+        }
+
+        .code-block .command {
+            color: var(--accent-green);
+        }
+
+        .code-block .prompt {
+            color: var(--accent-yellow);
+        }
+
+        /* Steps */
+        .steps {
+            counter-reset: step-counter;
+        }
+
+        .step {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h4 {
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .step-content p {
+            color: var(--text-secondary);
+        }
+
+        /* Workflow Diagram */
+        .workflow-diagram {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            overflow-x: auto;
+        }
+
+        .workflow-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            min-width: 600px;
+        }
+
+        .workflow-step {
+            text-align: center;
+            flex: 1;
+        }
+
+        .workflow-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin: 0 auto 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .workflow-step:hover .workflow-icon {
+            border-color: var(--accent-blue);
+            transform: scale(1.1);
+        }
+
+        .workflow-step span {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .workflow-arrow {
+            color: var(--accent-blue);
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        /* Tips Table */
+        .tips-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .tips-table th,
+        .tips-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tips-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .tips-table td:first-child {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tips-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Troubleshooting */
+        .trouble-item {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .trouble-item .problem {
+            color: var(--accent-red);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .trouble-item .solution {
+            color: var(--text-secondary);
+        }
+
+        /* Learning Path */
+        .learning-path {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .path-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--bg-tertiary);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-blue);
+            transition: transform 0.2s;
+        }
+
+        .path-item:hover {
+            transform: translateX(8px);
+        }
+
+        .path-item.current {
+            border-left-color: var(--accent-green);
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .path-number {
+            background: var(--accent-blue);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .path-item.current .path-number {
+            background: var(--accent-green);
+        }
+
+        .path-content {
+            flex: 1;
+        }
+
+        .path-content strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .path-content small {
+            color: var(--text-secondary);
+        }
+
+        .path-link {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .path-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .badge-blue { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+        .badge-green { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+        .badge-purple { background: rgba(163, 113, 247, 0.2); color: var(--accent-purple); }
+
+        /* Footer */
+        footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+
+            .workflow-steps {
+                flex-direction: column;
+            }
+
+            .workflow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="GETTING_STARTED.html" class="active">Getting Started</a></li>
+            <li><a href="USAGE_GUIDE.html">Usage Guide</a></li>
+            <li><a href="VALIDATION_PROCESS.html">Validation Process</a></li>
+            <li><a href="COMMANDS.html">Commands</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>Getting Started</h1>
+            <p>A practical guide for engineers new to the Lane workflow orchestrator</p>
+        </header>
+
+        <!-- Minimum Requirements -->
+        <div style="background: linear-gradient(135deg, rgba(248, 81, 73, 0.1), rgba(210, 153, 34, 0.1)); border: 2px solid var(--accent-yellow); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem;">
+            <h2 style="color: var(--accent-yellow); margin: 0 0 1rem 0; font-size: 1.3rem;">&#9888;&#65039; Minimum Requirements</h2>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                    <div style="color: var(--accent-green); font-weight: 600; margin-bottom: 0.5rem;">Node.js</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">v20+</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">Required for MCP services</div>
+                </div>
+                <div style="background: var(--bg-secondary); padding: 1rem; border-radius: 8px;">
+                    <div style="color: var(--accent-green); font-weight: 600; margin-bottom: 0.5rem;">Git</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">Any version</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">For version control</div>
+                </div>
+            </div>
+
+            <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 0.75rem;">+ One of these (pick one):</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div style="background: var(--bg-secondary); padding: 0.75rem; border-radius: 6px; border-left: 3px solid var(--accent-green);">
+                        <div style="font-weight: 600;">Claude Code CLI</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">Terminal-based workflow</div>
+                    </div>
+                    <div style="background: var(--bg-secondary); padding: 0.75rem; border-radius: 6px; border-left: 3px solid var(--accent-purple);">
+                        <div style="font-weight: 600;">Cursor IDE</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem;">Using Cursor Chat</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 0.75rem; background: var(--bg-tertiary); border-radius: 6px; font-family: monospace; font-size: 0.9rem;">
+                <span style="color: var(--text-secondary);"># Check your Node version</span><br>
+                <span style="color: var(--accent-green);">node --version</span>  <span style="color: var(--text-secondary);"># Must be v20.0.0 or higher</span>
+            </div>
+        </div>
+
+        <!-- Environment Selection -->
+        <section class="card">
+            <h2>Choose Your Environment</h2>
+            <p>Both environments use the same commands and workflow. Pick what suits your style.</p>
+
+            <div class="env-grid">
+                <div class="env-card terminal">
+                    <div class="env-icon">&#9000;</div>
+                    <h3>Terminal</h3>
+                    <div class="subtitle">Claude Code CLI</div>
+                    <ul class="feature-list">
+                        <li>Power users</li>
+                        <li>Keyboard-focused</li>
+                        <li>Remote/server work</li>
+                        <li>5 min setup</li>
+                    </ul>
+                </div>
+
+                <div class="env-card cursor">
+                    <div class="env-icon">&#128187;</div>
+                    <h3>Cursor IDE</h3>
+                    <div class="subtitle">Using Cursor Chat</div>
+                    <ul class="feature-list">
+                        <li>Visual learners</li>
+                        <li>See code inline</li>
+                        <li>File tree navigation</li>
+                        <li>Use Cursor Chat</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Terminal Setup -->
+        <section class="card">
+            <h2>Environment 1: Claude Code CLI (Terminal)</h2>
+
+            <h3>Setup Steps</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Install Claude Code CLI</h4>
+                        <div class="code-block">
+                            <span class="command">npm install -g @anthropic-ai/claude-code</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Clone the workspace</h4>
+                        <div class="code-block">
+                            <span class="command">git clone https://github.com/mazaia/lane.git</span><br>
+                            <span class="command">cd lane</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Run setup</h4>
+                        <div class="code-block">
+                            <span class="command">./scripts/setup</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Start Claude</h4>
+                        <div class="code-block">
+                            <span class="command">claude</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>You're ready! Start a workflow</h4>
+                        <div class="code-block">
+                            <span class="prompt">/work-ticket "Your first task"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Terminal Tips</h3>
+            <table class="tips-table">
+                <thead>
+                    <tr>
+                        <th>Tip</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Tab completion</td>
+                        <td>Press Tab to complete commands</td>
+                    </tr>
+                    <tr>
+                        <td>History</td>
+                        <td>Up/Down arrows to navigate command history</td>
+                    </tr>
+                    <tr>
+                        <td>Clear screen</td>
+                        <td><code>Ctrl+L</code> or type <code>clear</code></td>
+                    </tr>
+                    <tr>
+                        <td>Exit</td>
+                        <td>Type <code>exit</code> or <code>Ctrl+D</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Cursor Setup -->
+        <section class="card">
+            <h2>Environment 2: Cursor IDE</h2>
+
+            <h3>Setup Steps</h3>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Install Cursor IDE</h4>
+                        <p>Download from <a href="https://cursor.sh" style="color: var(--accent-blue);">cursor.sh</a></p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Open Workspace</h4>
+                        <p>File &rarr; Open Folder &rarr; select <code>lane</code></p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Verify MCP</h4>
+                        <p>Check status bar shows MCP services connected</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Open Cursor Chat</h4>
+                        <p>Mac: <code>Cmd+L</code><br>
+                        Windows: <code>Ctrl+L</code></p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>Start Working</h4>
+                        <div class="code-block">
+                            <span class="prompt">/work-ticket "Your first task"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Cursor Keyboard Shortcuts</h3>
+            <table class="tips-table">
+                <thead>
+                    <tr>
+                        <th>Shortcut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Cmd/Ctrl+Shift+P</code></td>
+                        <td>Command palette</td>
+                    </tr>
+                    <tr>
+                        <td><code>Cmd/Ctrl+P</code></td>
+                        <td>Quick open file</td>
+                    </tr>
+                    <tr>
+                        <td><code>Cmd/Ctrl+B</code></td>
+                        <td>Toggle sidebar</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Additional Setup -->
+        <section class="card">
+            <h2>Additional Setup (one-time)</h2>
+            <p>After cloning the workspace and running <code>./scripts/setup</code>, install the extra dependencies:</p>
+
+            <div class="code-block">
+                <span class="comment"># TypeScript + self-improvement deps</span><br>
+                <span class="command">npm install</span><br><br>
+                <span class="comment"># Qdrant (optional, for semantic search)</span><br>
+                <span class="command">docker compose up -d</span>
+            </div>
+
+            <div style="background: rgba(63, 185, 80, 0.1); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <strong style="color: var(--accent-green);">Team rules work without Qdrant</strong>
+                <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0; font-size: 0.9rem;">Rules are injected via a lightweight JSON+keyword hook. Qdrant is only needed if you want semantic vector search for memory and context retrieval.</p>
+            </div>
+        </section>
+
+        <!-- Your First Workflow -->
+        <section class="card">
+            <h2>Your First 5 Minutes</h2>
+
+            <h3>Step 1: Add Your Project</h3>
+            <p>Add your existing project (auto-symlinked) or create a new one. <strong>Git platform is auto-detected!</strong></p>
+            <div class="code-block">
+                <span class="comment"># Add existing project (auto-symlinked, git platform auto-detected)</span><br>
+                <span class="command">./scripts/add-project ~/code/my-react-app</span><br><br>
+                <span class="comment"># Clone from GitHub (auto-detects: github)</span><br>
+                <span class="command">./scripts/add-project https://github.com/user/repo</span><br><br>
+                <span class="comment"># Clone from Bitbucket (auto-detects: bitbucket + workspace)</span><br>
+                <span class="command">./scripts/add-project https://bitbucket.org/mycompany/repo</span><br><br>
+                <span class="comment"># Or create new empty project</span><br>
+                <span class="command">./scripts/add-project my-new-project</span>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">Git config saved to <code>.ai-contexts/&lt;project&gt;.yaml</code> - different projects can use different platforms!</p>
+
+            <h3>Step 2: Verify Project</h3>
+            <div class="code-block">
+                <span class="command">./scripts/list-projects</span><br><br>
+                <span class="comment"># Output:</span><br>
+                &#128193; my-project<br>
+                &#128193; my-react-app<br>
+                &#128193; ...
+            </div>
+
+            <h3>Step 3: Start a Task</h3>
+            <div class="code-block">
+                <span class="prompt">/work-ticket "Fix the typo in README"</span>
+            </div>
+
+            <h3>Step 3: Watch It Work</h3>
+            <div class="workflow-diagram">
+                <div class="workflow-steps">
+                    <div class="workflow-step">
+                        <div class="workflow-icon">&#128221;</div>
+                        <span>Analyze</span>
+                    </div>
+                    <div class="workflow-arrow">&rarr;</div>
+                    <div class="workflow-step">
+                        <div class="workflow-icon">&#128187;</div>
+                        <span>Developer</span>
+                    </div>
+                    <div class="workflow-arrow">&rarr;</div>
+                    <div class="workflow-step">
+                        <div class="workflow-icon">&#129514;</div>
+                        <span>Tester</span>
+                    </div>
+                    <div class="workflow-arrow">&rarr;</div>
+                    <div class="workflow-step">
+                        <div class="workflow-icon">&#128640;</div>
+                        <span>Deployer</span>
+                    </div>
+                    <div class="workflow-arrow">&rarr;</div>
+                    <div class="workflow-step">
+                        <div class="workflow-icon">&#128100;</div>
+                        <span>You</span>
+                    </div>
+                </div>
+            </div>
+
+           
+        </section>
+
+        <!-- Troubleshooting -->
+        <section class="card">
+            <h2>Troubleshooting</h2>
+
+            <div class="trouble-item">
+                <div class="problem">PROBLEM: "claude: command not found"</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="command">npm install -g @anthropic-ai/claude-code</span><br>
+                        <span class="command">claude --version</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trouble-item">
+                <div class="problem">PROBLEM: Claude Panel not showing in Cursor</div>
+                <div class="solution">
+                    <ol style="margin-left: 1.5rem; color: var(--text-secondary);">
+                        <li>Check: Does <code>.mcp.json</code> exist in workspace root?</li>
+                        <li>Try: <code>Cmd+Shift+P</code> &rarr; "Developer: Reload Window"</li>
+                        <li>Check: Is Claude extension enabled?</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="trouble-item">
+                <div class="problem">PROBLEM: "No active session"</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="prompt">/work-ticket "your task description"</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="trouble-item">
+                <div class="problem">PROBLEM: Session state corrupted</div>
+                <div class="solution">
+                    <div class="code-block">
+                        <span class="command">rm -rf .ai-session/</span><br>
+                        <span class="prompt">/work-ticket "your task"</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- What's Next -->
+        <section class="card">
+            <h2>What's Next?</h2>
+
+            <div class="learning-path">
+                <div class="path-item current">
+                    <div class="path-number">&#10003;</div>
+                    <div class="path-content">
+                        <strong>You are here</strong>
+                        <small>Getting Started Guide</small>
+                    </div>
+                </div>
+                <a href="COMMANDS.html" class="path-item path-link" style="text-decoration: none; color: inherit;">
+                    <div class="path-number">1</div>
+                    <div class="path-content">
+                        <strong>Slash Commands</strong>
+                        <small>Learn all /commands</small>
+                    </div>
+                </a>
+                <a href="VALIDATION_PROCESS.html" class="path-item path-link" style="text-decoration: none; color: inherit;">
+                    <div class="path-number">2</div>
+                    <div class="path-content">
+                        <strong>Validation Process</strong>
+                        <small>Understand quality gates</small>
+                    </div>
+                </a>
+                <a href="USAGE_GUIDE.html" class="path-item path-link" style="text-decoration: none; color: inherit;">
+                    <div class="path-number">3</div>
+                    <div class="path-content">
+                        <strong>Usage Guide</strong>
+                        <small>Daily usage and tips</small>
+                    </div>
+                </a>
+                <div class="path-item">
+                    <div class="path-number">4</div>
+                    <div class="path-content">
+                        <strong>Try It!</strong>
+                        <small>/work-ticket "Add a simple feature"</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>Lane - <a href="COMMANDS.html">Commands</a> | <a href="USAGE_GUIDE.html">Usage Guide</a> | <a href="VALIDATION_PROCESS.html">Validation</a></p>
+    </footer>
+</body>
+</html>

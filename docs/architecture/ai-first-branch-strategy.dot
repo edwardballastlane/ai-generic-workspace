@@ -1,0 +1,32 @@
+// AI-First §2 — Release branch lifecycle. Flat draw.io style, 2-column page-friendly layout.
+// Render: dot -Tpng -Gdpi=300 docs/architecture/ai-first-branch-strategy.dot -o docs/architecture/ai-first-branch-strategy.png
+digraph branch_strategy {
+  rankdir=LR;
+  bgcolor="white";
+  splines=spline;
+  nodesep=0.4; ranksep=0.7;
+  node [shape=box, style="filled", fontname="Helvetica-Bold", fontcolor="white",
+        fontsize=20, penwidth=2.0, margin="0.30,0.20"];
+  edge [color="#2F2F2F", penwidth=2.2, arrowsize=1.0,
+        fontname="Helvetica", fontsize=16, fontcolor="#555555"];
+
+  { rank=same; feature; release; test; }
+  { rank=same; master; prod; hotfix; }
+
+  feature [label="Feature branches\n<type>/<ticket>-<desc>", fillcolor="#4CAF50", color="#3C9140"];
+  release [label="release/weekN-YYYY\nweek's features", fillcolor="#4F86C6", color="#3A6BA5"];
+  test    [label="Test env\napi-test.lane.io\nvalidate 1–2 days", fillcolor="#8E44AD", color="#6F3686"];
+  master  [label="master\nalways production", fillcolor="#F2931E", color="#D67C00"];
+  prod    [label="Production\nrolling deploy", fillcolor="#2E7D32", color="#1B5E20"];
+  hotfix  [label="hotfix/<ticket>\nprod is broken", fillcolor="#E8453C", color="#C5352D"];
+
+  // intra-column flow
+  feature -> release [constraint=false, label="merge PRs"];
+  release -> test    [constraint=false, label="deploy"];
+  master  -> prod    [constraint=false, label="promote"];
+  // wrap col1 → col2
+  test -> master [label="sign-off → merge"];
+  // extras
+  master -> release [label="cut from", style=dashed, color="#9AA0A6", constraint=false];
+  hotfix -> master  [label="fast-track", color="#E8453C", fontcolor="#C5352D", constraint=false];
+}

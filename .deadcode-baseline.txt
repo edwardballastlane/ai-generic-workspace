@@ -1,0 +1,9 @@
+# deadcode-ratchet baseline — frozen orphaned script files (forbid-growth ratchet).
+# A NEW scripts/** file that nothing references and is not listed here fails CI.
+# Prefer wiring or deleting the file over adding it here.
+# Regenerate with: npm run ratchet:deadcode -- --update
+scripts/hooks/_lib/workspace-root.d.ts
+scripts/self-improvement/backfill-authors.ts
+scripts/session-embedder/check-vectors.js
+scripts/session-embedder/knowledge-linker.ts
+scripts/session-embedder/tiered-memory.ts

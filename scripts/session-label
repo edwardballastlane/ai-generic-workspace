@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+
+# session-label — Label past sessions with a short recap title.
+#
+# Usage:
+#   ./scripts/session-label           # walk unlabeled sessions, prompt for label
+#   ./scripts/session-label --all     # re-label all sessions (including labeled)
+#   ./scripts/session-label --auto    # auto-generate labels from commits/resume, no prompts
+#   ./scripts/session-label --dry-run # preview without writing
+#   ./scripts/session-label --set <session-id> "label text"
+#   ./scripts/session-label --backfill # write custom-title to CC JSONL for all labeled sessions
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+SIDECAR_DIR="$ROOT_DIR/.ai-session/by-id"
+RESUME_DIR="$ROOT_DIR/.ai-session/resume"
+
+BOLD='\033[1m'
+CYAN='\033[0;36m'
+DIM='\033[2m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+MODE="unlabeled"
+DRY_RUN=false
+AUTO=false
+SET_ID=""
+SET_LABEL=""
+
+# Derive the ~/.claude/projects/ slug from cwd
+cc_jsonl_path() {
+  local sid="$1" cwd="$2"
+  local slug
+  slug=$(printf '%s' "$cwd" | sed 's|/|-|g')
+  echo "$HOME/.claude/projects/${slug}/${sid}.jsonl"
+}
+
+# Append custom-title entry to CC JSONL (idempotent: skip if title already exists)
+write_cc_title() {
+  local sid="$1" title="$2" cwd="$3"
+  [ -z "$title" ] && return
+  local jsonl
+  jsonl=$(cc_jsonl_path "$sid" "$cwd")
+  [ ! -f "$jsonl" ] && return
+  # Skip if a custom-title entry already exists
+  if grep -q '"type":"custom-title"' "$jsonl" 2>/dev/null; then
+    return
+  fi
+  jq -n --arg t "$title" --arg s "$sid" \
+    '{"type":"custom-title","customTitle":$t,"sessionId":$s}' \
+    >> "$jsonl" 2>/dev/null || true
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --all)      MODE="all"; shift ;;
+    --auto)     AUTO=true; shift ;;
+    --dry-run)  DRY_RUN=true; shift ;;
+    --backfill) MODE="backfill"; shift ;;
+    --set)      SET_ID="${2:-}"; shift 2; SET_LABEL="${1:-}"; [ $# -gt 0 ] && shift ;;
+    -h|--help)  sed -n '3,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
+# ── Non-interactive --set mode ────────────────────────────────────
+if [ -n "$SET_ID" ]; then
+  SIDECAR="$SIDECAR_DIR/${SET_ID}.json"
+  if [ ! -f "$SIDECAR" ]; then
+    SIDECAR=$(find "$SIDECAR_DIR" -name "${SET_ID}*.json" 2>/dev/null | head -1)
+    [ -z "$SIDECAR" ] && echo "Session not found: $SET_ID" >&2 && exit 1
+  fi
+  [ -z "$SET_LABEL" ] && echo "Usage: session-label --set <id> \"label\"" >&2 && exit 1
+  jq --arg t "$SET_LABEL" '.task = $t' "$SIDECAR" > "$SIDECAR.tmp.$$" && mv "$SIDECAR.tmp.$$" "$SIDECAR"
+  SET_CWD=$(jq -r '.cwd // ""' "$SIDECAR" 2>/dev/null)
+  write_cc_title "$SET_ID" "$SET_LABEL" "$SET_CWD"
+  echo "Labeled $(basename "$SIDECAR" .json): $SET_LABEL"
+  exit 0
+fi
+
+# ── Collect sidecars sorted by started_at ascending ──────────────
+[ ! -d "$SIDECAR_DIR" ] && echo "No session sidecars found." >&2 && exit 0
+
+SIDECARS=()
+while IFS= read -r f; do
+  SIDECARS+=("$f")
+done < <(
+  for f in "$SIDECAR_DIR"/*.json; do
+    [ -f "$f" ] || continue
+    started=$(jq -r '.started_at // ""' "$f" 2>/dev/null)
+    printf '%s\t%s\n' "$started" "$f"
+  done | sort | awk -F'\t' '{print $2}'
+)
+
+[ "${#SIDECARS[@]}" -eq 0 ] && echo "No session sidecars found." && exit 0
+
+# ── Backfill: write custom-title to CC JSONL for all labeled sessions ──
+if [ "$MODE" = "backfill" ]; then
+  LABELED=0
+  for SIDECAR in "${SIDECARS[@]}"; do
+    BF_SID=$(jq -r '.session_id // ""' "$SIDECAR" 2>/dev/null)
+    BF_TASK=$(jq -r '.task // ""' "$SIDECAR" 2>/dev/null)
+    BF_CWD=$(jq -r '.cwd // ""' "$SIDECAR" 2>/dev/null)
+    [ -z "$BF_SID" ] || [ -z "$BF_TASK" ] || [ -z "$BF_CWD" ] && continue
+    JSONL=$(cc_jsonl_path "$BF_SID" "$BF_CWD")
+    [ ! -f "$JSONL" ] && continue
+    if $DRY_RUN; then
+      printf "${CYAN}%s${NC} ${DIM}%s${NC} → %s\n" "${BF_SID:0:8}" "$BF_CWD" "$BF_TASK"
+      LABELED=$((LABELED + 1))
+      continue
+    fi
+    write_cc_title "$BF_SID" "$BF_TASK" "$BF_CWD"
+    printf "${CYAN}%s${NC} ${GREEN}✓${NC} %s\n" "${BF_SID:0:8}" "$BF_TASK"
+    LABELED=$((LABELED + 1))
+  done
+  echo ""
+  echo -e "${DIM}Backfilled: $LABELED sessions${NC}"
+  exit 0
+fi
+
+# ── Helper: meaningful commits in a time window ───────────────────
+# Returns non-chore commit subjects first, then chore if nothing else.
+best_commits() {
+  local after="$1" before="$2"
+  # extend "before" by 10 min to catch commits made right as the session closed
+  local before_ext
+  before_ext=$(date -u -d "$before 10 minutes" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "$before")
+  local all
+  all=$(git -C "$ROOT_DIR" log \
+    --after="$after" --before="$before_ext" \
+    --format="%s" --no-merges 2>/dev/null)
+  # prefer non-chore commits
+  local meaningful
+  meaningful=$(echo "$all" | grep -v '^chore:' | head -3)
+  if [ -n "$meaningful" ]; then
+    echo "$meaningful"
+  else
+    echo "$all" | head -3
+  fi
+}
+
+# Strip conventional-commit prefix (feat:, fix:, chore:, etc.) and trim
+strip_prefix() {
+  echo "$1" | sed 's/^[a-z]*([^)]*): //' | sed 's/^[a-z]*: //' | cut -c1-90
+}
+
+# ── Helper: resume note (non-auto-compact lines only) ─────────────
+resume_note() {
+  local sid="$1"
+  local short="${sid:0:8}"
+  local match
+  match=$(ls "$RESUME_DIR/${short}"*.md 2>/dev/null | sort | tail -1)
+  [ -z "$match" ] && return
+  local note
+  note=$(awk '/^## Note from previous session/{found=1; next} found && /^## /{exit} found{print}' "$match" \
+    | grep -v 'pre-compact (auto)' | grep -v '^[[:space:]]*$' | head -2)
+  echo "$note"
+}
+
+# ── Auto-generate a label from available signals ──────────────────
+auto_label() {
+  local sid="$1" started="$2" last="$3"
+
+  # Signal 1: resume note
+  local note
+  note=$(resume_note "$sid")
+  if [ -n "$note" ]; then
+    strip_prefix "$(echo "$note" | head -1)"
+    return
+  fi
+
+  # Signal 2: git commits in window
+  local commits
+  commits=$(best_commits "$started" "$last")
+  if [ -n "$commits" ]; then
+    # Join up to 2 subjects with " / "
+    local label=""
+    while IFS= read -r line; do
+      local clean
+      clean=$(strip_prefix "$line")
+      if [ -z "$label" ]; then
+        label="$clean"
+      else
+        label="$label / $clean"
+        break
+      fi
+    done <<< "$commits"
+    echo "${label:0:100}"
+    return
+  fi
+
+  echo ""
+}
+
+# ── Main loop ─────────────────────────────────────────────────────
+LABELED=0
+SKIPPED=0
+TOTAL=0
+
+for SIDECAR in "${SIDECARS[@]}"; do
+  DATA=$(jq -r '[
+    .session_id,
+    (.started_at // ""),
+    (.last_active // ""),
+    (.project // ""),
+    (.prompts // 0 | tostring),
+    (.cost_usd // 0 | tostring),
+    (.task // ""),
+    (.cwd // "")
+  ] | join("\t")' "$SIDECAR" 2>/dev/null)
+
+  SID=$(printf '%s' "$DATA"    | cut -f1)
+  STARTED=$(printf '%s' "$DATA" | cut -f2)
+  LAST=$(printf '%s' "$DATA"   | cut -f3)
+  PROJECT=$(printf '%s' "$DATA" | cut -f4)
+  PROMPTS=$(printf '%s' "$DATA" | cut -f5)
+  COST=$(printf '%s' "$DATA"   | cut -f6)
+  TASK=$(printf '%s' "$DATA"   | cut -f7)
+  CWD=$(printf '%s' "$DATA"    | cut -f8)
+
+  # Filter by mode
+  if [ "$MODE" = "unlabeled" ] && [ -n "$TASK" ]; then
+    continue
+  fi
+
+  TOTAL=$((TOTAL + 1))
+  DATE_DISPLAY=$(date -d "$STARTED" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "$STARTED")
+
+  if $AUTO; then
+    # Skip trivial sessions (1 prompt, no cost)
+    COST_INT=$(LC_NUMERIC=C printf "%.0f" "$COST" 2>/dev/null || echo "0")
+    if [ "$PROMPTS" -le 1 ] && [ "$COST_INT" -eq 0 ]; then
+      SKIPPED=$((SKIPPED + 1))
+      continue
+    fi
+
+    GENERATED=$(auto_label "$SID" "$STARTED" "$LAST")
+    if [ -z "$GENERATED" ]; then
+      SKIPPED=$((SKIPPED + 1))
+      continue
+    fi
+
+    printf "${CYAN}%s${NC} ${DIM}%s${NC} → %s\n" "${SID:0:8}" "$DATE_DISPLAY" "$GENERATED"
+
+    if ! $DRY_RUN; then
+      jq --arg t "$GENERATED" '.task = $t' "$SIDECAR" > "$SIDECAR.tmp.$$" 2>/dev/null \
+        && mv "$SIDECAR.tmp.$$" "$SIDECAR"
+      write_cc_title "$SID" "$GENERATED" "$CWD"
+    fi
+    LABELED=$((LABELED + 1))
+    continue
+  fi
+
+  # ── Interactive mode ─────────────────────────────────────────────
+  echo ""
+  echo -e "${BOLD}${CYAN}── Session ${SID:0:8}...${NC}"
+  echo -e "   ${BOLD}Date:${NC}    $DATE_DISPLAY"
+  echo -e "   ${BOLD}Project:${NC} ${PROJECT:-unknown}"
+  LC_NUMERIC=C printf "   ${BOLD}Stats:${NC}   %s prompts · \$%.3f\n" "$PROMPTS" "$COST"
+  [ -n "$TASK" ] && echo -e "   ${BOLD}Current:${NC} ${YELLOW}${TASK}${NC}"
+
+  if [ -n "$STARTED" ] && [ -n "$LAST" ]; then
+    COMMITS=$(best_commits "$STARTED" "$LAST")
+    if [ -n "$COMMITS" ]; then
+      echo -e "   ${BOLD}Commits:${NC}"
+      while IFS= read -r line; do
+        echo -e "   ${DIM}$(strip_prefix "$line")${NC}"
+      done <<< "$COMMITS"
+    fi
+  fi
+
+  NOTE=$(resume_note "$SID")
+  [ -n "$NOTE" ] && echo -e "   ${BOLD}Note:${NC} ${DIM}${NOTE}${NC}"
+
+  SUGGESTION=$(auto_label "$SID" "$STARTED" "$LAST")
+  [ -n "$SUGGESTION" ] && echo -e "   ${BOLD}Suggested:${NC} ${DIM}${SUGGESTION}${NC}"
+
+  if $DRY_RUN; then
+    echo -e "   ${DIM}[dry-run]${NC}"
+    SKIPPED=$((SKIPPED + 1))
+    continue
+  fi
+
+  printf "\n   Label (Enter=suggested, space+Enter=skip): "
+  read -r LABEL </dev/tty || { echo ""; break; }
+
+  if [ "$LABEL" = " " ] || [ "$LABEL" = "  " ]; then
+    SKIPPED=$((SKIPPED + 1))
+  else
+    FINAL="${LABEL:-$SUGGESTION}"
+    if [ -n "$FINAL" ]; then
+      jq --arg t "$FINAL" '.task = $t' "$SIDECAR" > "$SIDECAR.tmp.$$" 2>/dev/null \
+        && mv "$SIDECAR.tmp.$$" "$SIDECAR"
+      write_cc_title "$SID" "$FINAL" "$CWD"
+      echo -e "   ${GREEN}Saved: ${FINAL}${NC}"
+      LABELED=$((LABELED + 1))
+    else
+      SKIPPED=$((SKIPPED + 1))
+    fi
+  fi
+done
+
+echo ""
+if [ "$TOTAL" -eq 0 ]; then
+  echo "All sessions already labeled. Use --all to re-label."
+elif $AUTO; then
+  echo -e "${DIM}Auto-labeled: $LABELED · skipped (trivial/no data): $SKIPPED${NC}"
+else
+  echo -e "${DIM}Done: $LABELED labeled, $SKIPPED skipped (of $TOTAL)${NC}"
+fi

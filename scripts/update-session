@@ -1,0 +1,491 @@
+#!/usr/bin/env bash
+
+# update-session - Update AI workflow session state
+# Usage: ./scripts/update-session <action> [args...]
+#
+# Actions:
+#   agent <name>           - Set current agent (manual override)
+#   next-agent             - Move to next agent (validates outputs + lessons first)
+#   skip-agent             - Skip current agent, move to next (no validation)
+#   skip-to <agent>        - Jump directly to a specific agent (skips intermediate)
+#   phase <number> <name>  - Set current phase
+#   complete-agent <name>  - Mark agent as completed
+#   complete-phase <num>   - Mark phase as completed
+#   add-output <file>      - Add file to outputs
+#   add-decision <text>    - Add decision to log
+#   status <status>        - Set session status (active|paused|completed)
+#   show                   - Display current session
+#
+# Epic Actions:
+#   set-epic <key>         - Link Jira epic to session
+#   epic-task <key>        - Set current epic task being worked on
+#   complete-epic-task <key> - Mark epic task done, update epic context
+#   next-epic-task         - Get next ready task from epic
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+SHARED_YAML="$ROOT_DIR/.ai-session/current.yaml"
+
+# Phase B: resolve a per-cc-session yaml at by-id/<sid>.yaml so a parallel
+# terminal's session state is not clobbered. Resolution order for sessionId:
+#   1. $CLAUDE_SESSION_ID env (if the caller exported it)
+#   2. claude_session_id field inside current.yaml (back-compat)
+# When the per-session file exists, edits target it; current.yaml gets a
+# mirrored copy at the end (via the EXIT trap) so list-projects, save-session-
+# memory, and other tools that read current.yaml continue to work.
+SID="${CLAUDE_SESSION_ID:-}"
+if [ -z "$SID" ] && [ -f "$SHARED_YAML" ]; then
+    # Extract claude_session_id from current.yaml; tolerate empty-quoted form
+    # (claude_session_id: "") that start-session writes before CC binds.
+    SID="$(sed -nE 's/^[[:space:]]*claude_session_id:[[:space:]]*"?([^"[:space:]]*)"?[[:space:]]*$/\1/p' "$SHARED_YAML" 2>/dev/null | head -1)"
+fi
+PER_SESSION_YAML=""
+if [ -n "$SID" ] && [ -f "$ROOT_DIR/.ai-session/by-id/$SID.yaml" ]; then
+    PER_SESSION_YAML="$ROOT_DIR/.ai-session/by-id/$SID.yaml"
+    SESSION_FILE="$PER_SESSION_YAML"
+else
+    SESSION_FILE="$SHARED_YAML"
+fi
+
+# Mirror the per-session yaml back to current.yaml on a clean exit so
+# back-compat consumers see the same content. Skipped when SESSION_FILE is
+# already current.yaml (single-write case).
+_mirror_back() {
+    if [ -n "$PER_SESSION_YAML" ] && [ -f "$PER_SESSION_YAML" ]; then
+        cp "$PER_SESSION_YAML" "$SHARED_YAML"
+    fi
+}
+trap _mirror_back EXIT
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Check if session exists
+if [ ! -f "$SESSION_FILE" ]; then
+    echo -e "${YELLOW}No active session found.${NC}"
+    echo "Start one with: ./scripts/start-session <workflow> <task>"
+    exit 1
+fi
+
+ACTION="$1"
+shift || true
+
+case "$ACTION" in
+    agent)
+        AGENT="$1"
+        if [ -z "$AGENT" ]; then
+            echo "Usage: ./scripts/update-session agent <name>"
+            exit 1
+        fi
+        # Update agent in yaml (simple sed replacement)
+        sed -i.bak "s/agent: \".*\"/agent: \"$AGENT\"/" "$SESSION_FILE"
+        sed -i.bak "s/agent_status: \".*\"/agent_status: \"active\"/" "$SESSION_FILE"
+        TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        # Update started timestamp for current agent
+        sed -i.bak "/^  started:/s/\".*\"/\"$TIMESTAMP\"/" "$SESSION_FILE"
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Agent updated to: $AGENT${NC}"
+        ;;
+
+    phase)
+        PHASE_NUM="$1"
+        PHASE_NAME="$2"
+        if [ -z "$PHASE_NUM" ] || [ -z "$PHASE_NAME" ]; then
+            echo "Usage: ./scripts/update-session phase <number> <name>"
+            exit 1
+        fi
+        sed -i.bak "s/phase: .*/phase: $PHASE_NUM/" "$SESSION_FILE"
+        sed -i.bak "s/phase_name: \".*\"/phase_name: \"$PHASE_NAME\"/" "$SESSION_FILE"
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Phase updated to: $PHASE_NUM - $PHASE_NAME${NC}"
+        ;;
+
+    complete-agent)
+        AGENT="$1"
+        if [ -z "$AGENT" ]; then
+            echo "Usage: ./scripts/update-session complete-agent <name>"
+            exit 1
+        fi
+        # Add to agents_completed list
+        if grep -q "agents_completed: \[\]" "$SESSION_FILE"; then
+            sed -i.bak "s/agents_completed: \[\]/agents_completed: [$AGENT]/" "$SESSION_FILE"
+        else
+            sed -i.bak "s/agents_completed: \[\(.*\)\]/agents_completed: [\1, $AGENT]/" "$SESSION_FILE"
+        fi
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Agent completed: $AGENT${NC}"
+        ;;
+
+    next-agent)
+        # Get the workflow sequence and determine next agent
+        AGENTS_LINE=$(grep "agents:" "$SESSION_FILE" | head -1)
+        # Extract agents array: [architect, designer, developer, ...]
+        AGENTS_STR=$(echo "$AGENTS_LINE" | sed 's/.*\[\(.*\)\].*/\1/' | tr -d ' ')
+
+        # Convert to array
+        IFS=',' read -ra AGENTS_ARRAY <<< "$AGENTS_STR"
+
+        # Get current index and agent
+        CURRENT_INDEX=$(grep "current_index:" "$SESSION_FILE" | sed 's/.*: //')
+        CURRENT_AGENT="${AGENTS_ARRAY[$CURRENT_INDEX]}"
+
+        # ─── Validate handoff: check outputs exist ──────────────
+        OUTPUT_FILES=$(grep "files:" "$SESSION_FILE" | sed 's/.*\[\(.*\)\].*/\1/')
+        if [ "$OUTPUT_FILES" = "" ] || [ "$OUTPUT_FILES" = "files: []" ]; then
+            echo -e "${YELLOW}⚠ Warning: No output files tracked for agent '$CURRENT_AGENT'.${NC}"
+            echo -e "${YELLOW}  If work was done, track outputs first: ./scripts/update-session add-output <file>${NC}"
+            echo -e "${YELLOW}  Proceeding anyway (use 'skip-agent' to skip without warning).${NC}"
+            echo ""
+        fi
+
+        # ─── Lesson checkpoint: remind before handoff ────────────
+        LESSON_MSG=$("$SCRIPT_DIR/check-lessons" --trigger handoff 2>/dev/null || true)
+        if [ -n "$LESSON_MSG" ]; then
+            echo -e "${YELLOW}$LESSON_MSG${NC}"
+            echo ""
+        fi
+
+        # Calculate next index
+        NEXT_INDEX=$((CURRENT_INDEX + 1))
+
+        # Check if we've reached the end
+        if [ "$NEXT_INDEX" -ge "${#AGENTS_ARRAY[@]}" ]; then
+            echo -e "${YELLOW}All agents completed! Workflow finished.${NC}"
+            exit 0
+        fi
+
+        NEXT_AGENT="${AGENTS_ARRAY[$NEXT_INDEX]}"
+
+        # ─── Record handoff in session file ──────────────────────
+        TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        # Append handoff entry
+        if grep -q "handoffs: \[\]" "$SESSION_FILE"; then
+            sed -i.bak "s/handoffs: \[\]/handoffs:\n  - from: \"$CURRENT_AGENT\"\n    to: \"$NEXT_AGENT\"\n    at: \"$TIMESTAMP\"/" "$SESSION_FILE"
+        else
+            echo "  - from: \"$CURRENT_AGENT\"" >> "$SESSION_FILE"
+            echo "    to: \"$NEXT_AGENT\"" >> "$SESSION_FILE"
+            echo "    at: \"$TIMESTAMP\"" >> "$SESSION_FILE"
+        fi
+
+        # Mark current agent as completed
+        if grep -q "agents_completed: \[\]" "$SESSION_FILE"; then
+            sed -i.bak "s/agents_completed: \[\]/agents_completed: [$CURRENT_AGENT]/" "$SESSION_FILE"
+        else
+            sed -i.bak "s/agents_completed: \[\(.*\)\]/agents_completed: [\1, $CURRENT_AGENT]/" "$SESSION_FILE"
+        fi
+
+        # Update current_index
+        sed -i.bak "s/current_index: .*/current_index: $NEXT_INDEX/" "$SESSION_FILE"
+
+        # Update agent
+        sed -i.bak "s/agent: \".*\"/agent: \"$NEXT_AGENT\"/" "$SESSION_FILE"
+        sed -i.bak "s/agent_status: \".*\"/agent_status: \"active\"/" "$SESSION_FILE"
+
+        # Update timestamp
+        sed -i.bak "/^  started:/s/\".*\"/\"$TIMESTAMP\"/" "$SESSION_FILE"
+
+        rm -f "$SESSION_FILE.bak"
+
+        echo -e "${GREEN}Handoff: $CURRENT_AGENT → $NEXT_AGENT (index $NEXT_INDEX)${NC}"
+        echo "NEXT_AGENT=$NEXT_AGENT"
+
+        # ─── Inject role-relevant lessons at handoff ─────────────
+        # Map agent role → relevant lesson categories (critical+high only)
+        CATS_RE=""
+        case "$NEXT_AGENT" in
+          developer)   CATS_RE="code-quality|architecture|testing|performance" ;;
+          tester)      CATS_RE="testing|code-quality" ;;
+          reviewer)    CATS_RE="code-quality|security|architecture|git" ;;
+          deployer)    CATS_RE="git|security" ;;
+        esac
+
+        if [ -n "$CATS_RE" ]; then
+          PROJ=$(grep "project:" "$SESSION_FILE" | head -1 | sed 's/.*: *//' | tr -d '"')
+          HANDOFF_LESSONS=$("$SCRIPT_DIR/load-lessons" ${PROJ:+$PROJ} 2>/dev/null \
+            | grep -E "^\[(critical|high)/($CATS_RE)\]" || true)
+          if [ -n "$HANDOFF_LESSONS" ]; then
+            echo ""
+            echo "<handoff-lessons agent=\"$NEXT_AGENT\">"
+            echo "$HANDOFF_LESSONS"
+            echo "</handoff-lessons>"
+          fi
+        fi
+        ;;
+
+    skip-agent)
+        # Skip current agent without validation — move to next
+        AGENTS_LINE=$(grep "agents:" "$SESSION_FILE" | head -1)
+        AGENTS_STR=$(echo "$AGENTS_LINE" | sed 's/.*\[\(.*\)\].*/\1/' | tr -d ' ')
+        IFS=',' read -ra AGENTS_ARRAY <<< "$AGENTS_STR"
+        CURRENT_INDEX=$(grep "current_index:" "$SESSION_FILE" | sed 's/.*: //')
+        CURRENT_AGENT="${AGENTS_ARRAY[$CURRENT_INDEX]}"
+        NEXT_INDEX=$((CURRENT_INDEX + 1))
+
+        if [ "$NEXT_INDEX" -ge "${#AGENTS_ARRAY[@]}" ]; then
+            echo -e "${YELLOW}All agents completed! Workflow finished.${NC}"
+            exit 0
+        fi
+
+        NEXT_AGENT="${AGENTS_ARRAY[$NEXT_INDEX]}"
+        TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+        sed -i.bak "s/current_index: .*/current_index: $NEXT_INDEX/" "$SESSION_FILE"
+        sed -i.bak "s/agent: \".*\"/agent: \"$NEXT_AGENT\"/" "$SESSION_FILE"
+        sed -i.bak "s/agent_status: \".*\"/agent_status: \"active\"/" "$SESSION_FILE"
+        sed -i.bak "/^  started:/s/\".*\"/\"$TIMESTAMP\"/" "$SESSION_FILE"
+        rm -f "$SESSION_FILE.bak"
+
+        echo -e "${YELLOW}Skipped: $CURRENT_AGENT${NC}"
+        echo -e "${GREEN}Now: $NEXT_AGENT (index $NEXT_INDEX)${NC}"
+        echo "NEXT_AGENT=$NEXT_AGENT"
+        ;;
+
+    skip-to)
+        # Jump directly to a specific agent — skips all intermediate agents
+        TARGET="$1"
+        if [ -z "$TARGET" ]; then
+            echo "Usage: ./scripts/update-session skip-to <agent-name>"
+            exit 1
+        fi
+
+        AGENTS_LINE=$(grep "agents:" "$SESSION_FILE" | head -1)
+        AGENTS_STR=$(echo "$AGENTS_LINE" | sed 's/.*\[\(.*\)\].*/\1/' | tr -d ' ')
+        IFS=',' read -ra AGENTS_ARRAY <<< "$AGENTS_STR"
+        CURRENT_INDEX=$(grep "current_index:" "$SESSION_FILE" | sed 's/.*: //')
+        CURRENT_AGENT="${AGENTS_ARRAY[$CURRENT_INDEX]}"
+
+        # Find target agent index
+        TARGET_INDEX=-1
+        for i in "${!AGENTS_ARRAY[@]}"; do
+            if [ "${AGENTS_ARRAY[$i]}" = "$TARGET" ]; then
+                TARGET_INDEX=$i
+                break
+            fi
+        done
+
+        if [ "$TARGET_INDEX" -lt 0 ]; then
+            echo -e "${YELLOW}Error: Agent '$TARGET' not in workflow sequence.${NC}"
+            echo "Available: ${AGENTS_ARRAY[*]}"
+            exit 1
+        fi
+
+        if [ "$TARGET_INDEX" -le "$CURRENT_INDEX" ]; then
+            echo -e "${YELLOW}Error: Can only skip forward. '$TARGET' is at or before current position.${NC}"
+            exit 1
+        fi
+
+        # Collect skipped agents
+        SKIPPED=""
+        for ((i=CURRENT_INDEX; i<TARGET_INDEX; i++)); do
+            SKIPPED="${SKIPPED:+$SKIPPED, }${AGENTS_ARRAY[$i]}"
+        done
+
+        TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        sed -i.bak "s/current_index: .*/current_index: $TARGET_INDEX/" "$SESSION_FILE"
+        sed -i.bak "s/agent: \".*\"/agent: \"$TARGET\"/" "$SESSION_FILE"
+        sed -i.bak "s/agent_status: \".*\"/agent_status: \"active\"/" "$SESSION_FILE"
+        sed -i.bak "/^  started:/s/\".*\"/\"$TIMESTAMP\"/" "$SESSION_FILE"
+        rm -f "$SESSION_FILE.bak"
+
+        echo -e "${YELLOW}Skipped: $SKIPPED${NC}"
+        echo -e "${GREEN}Now: $TARGET (index $TARGET_INDEX)${NC}"
+        echo "NEXT_AGENT=$TARGET"
+        ;;
+
+    complete-phase)
+        PHASE="$1"
+        if [ -z "$PHASE" ]; then
+            echo "Usage: ./scripts/update-session complete-phase <number>"
+            exit 1
+        fi
+        if grep -q "phases_completed: \[\]" "$SESSION_FILE"; then
+            sed -i.bak "s/phases_completed: \[\]/phases_completed: [$PHASE]/" "$SESSION_FILE"
+        else
+            sed -i.bak "s/phases_completed: \[\(.*\)\]/phases_completed: [\1, $PHASE]/" "$SESSION_FILE"
+        fi
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Phase completed: $PHASE${NC}"
+        ;;
+
+    add-output)
+        FILE="$1"
+        if [ -z "$FILE" ]; then
+            echo "Usage: ./scripts/update-session add-output <file>"
+            exit 1
+        fi
+        if grep -q "files: \[\]" "$SESSION_FILE"; then
+            sed -i.bak "s|files: \[\]|files: [\"$FILE\"]|" "$SESSION_FILE"
+        else
+            sed -i.bak "s|files: \[\(.*\)\]|files: [\1, \"$FILE\"]|" "$SESSION_FILE"
+        fi
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Output added: $FILE${NC}"
+        ;;
+
+    status)
+        STATUS="$1"
+        if [ -z "$STATUS" ]; then
+            echo "Usage: ./scripts/update-session status <active|paused|completed>"
+            exit 1
+        fi
+        sed -i.bak "s/status: \".*\"/status: \"$STATUS\"/" "$SESSION_FILE"
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Status updated to: $STATUS${NC}"
+
+        # Remind to save session memory and capture lessons when completing
+        if [ "$STATUS" = "completed" ]; then
+            echo ""
+            echo -e "${YELLOW}Session completed! Self-learning checklist:${NC}"
+            echo -e "  1. Capture any lessons learned:"
+            echo -e "     ${GREEN}./scripts/capture-lesson --project <project> --category <cat> --severity <level> \"lesson\"${NC}"
+            echo -e "  2. Save session to memory:"
+            echo -e "     ${GREEN}./scripts/save-session-memory \"Brief summary of what was done\"${NC}"
+        fi
+        ;;
+
+    show)
+        echo -e "${BLUE}Current Session:${NC}"
+        echo "================"
+        cat "$SESSION_FILE"
+        ;;
+
+    set-ticket)
+        TICKET="$1"
+        if [ -z "$TICKET" ]; then
+            echo "Usage: ./scripts/update-session set-ticket <JIRA-TICKET>"
+            exit 1
+        fi
+        if grep -q "jira_ticket:" "$SESSION_FILE"; then
+            sed -i.bak "s/jira_ticket:.*/jira_ticket: \"$TICKET\"/" "$SESSION_FILE"
+        else
+            sed -i.bak "/^task:/a\\  jira_ticket: \"$TICKET\"" "$SESSION_FILE"
+        fi
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Ticket linked: $TICKET${NC}"
+        ;;
+
+    set-epic)
+        EPIC_KEY="$1"
+        if [ -z "$EPIC_KEY" ]; then
+            echo "Usage: ./scripts/update-session set-epic <EPIC-KEY>"
+            exit 1
+        fi
+        # Add or update epic_key in session
+        if grep -q "epic_key:" "$SESSION_FILE"; then
+            sed -i.bak "s/epic_key: .*/epic_key: \"$EPIC_KEY\"/" "$SESSION_FILE"
+        else
+            # Add epic_key after workflow line
+            sed -i.bak "/^workflow:/a\\
+epic_key: \"$EPIC_KEY\"" "$SESSION_FILE"
+        fi
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Epic linked: $EPIC_KEY${NC}"
+        ;;
+
+    epic-task)
+        TASK_KEY="$1"
+        if [ -z "$TASK_KEY" ]; then
+            echo "Usage: ./scripts/update-session epic-task <TASK-KEY>"
+            exit 1
+        fi
+        # Add or update current_epic_task in session
+        if grep -q "current_epic_task:" "$SESSION_FILE"; then
+            sed -i.bak "s/current_epic_task: .*/current_epic_task: \"$TASK_KEY\"/" "$SESSION_FILE"
+        else
+            # Add current_epic_task after epic_key or workflow line
+            if grep -q "epic_key:" "$SESSION_FILE"; then
+                sed -i.bak "/^epic_key:/a\\
+current_epic_task: \"$TASK_KEY\"" "$SESSION_FILE"
+            else
+                sed -i.bak "/^workflow:/a\\
+current_epic_task: \"$TASK_KEY\"" "$SESSION_FILE"
+            fi
+        fi
+        rm -f "$SESSION_FILE.bak"
+        echo -e "${GREEN}Current epic task: $TASK_KEY${NC}"
+        ;;
+
+    complete-epic-task)
+        TASK_KEY="$1"
+        shift || true
+        COMPLETION_NOTES="$*"
+
+        if [ -z "$TASK_KEY" ]; then
+            echo "Usage: ./scripts/update-session complete-epic-task <TASK-KEY> [completion notes...]"
+            exit 1
+        fi
+
+        # Get epic key from session
+        EPIC_KEY=$(grep "epic_key:" "$SESSION_FILE" | sed 's/.*: *//' | tr -d '"')
+
+        if [ -z "$EPIC_KEY" ]; then
+            echo -e "${YELLOW}Warning: No epic linked to session${NC}"
+            echo "Use 'set-epic <key>' first, or update epic context manually:"
+            echo "  ./scripts/epic-status <EPIC-KEY> --update $TASK_KEY=completed"
+            exit 1
+        fi
+
+        # Update epic context file
+        EPIC_CONTEXT="$ROOT_DIR/.ai-contexts/epic-${EPIC_KEY}.yaml"
+        if [ -f "$EPIC_CONTEXT" ]; then
+            if [ -n "$COMPLETION_NOTES" ]; then
+                "$SCRIPT_DIR/epic-status" "$EPIC_KEY" --update "$TASK_KEY=completed" --notes "$COMPLETION_NOTES"
+            else
+                "$SCRIPT_DIR/epic-status" "$EPIC_KEY" --update "$TASK_KEY=completed"
+            fi
+        else
+            echo -e "${YELLOW}Warning: Epic context not found: $EPIC_CONTEXT${NC}"
+        fi
+
+        # Clear current_epic_task
+        sed -i.bak "s/current_epic_task: .*/current_epic_task: \"\"/" "$SESSION_FILE"
+        rm -f "$SESSION_FILE.bak"
+
+        echo -e "${GREEN}Epic task completed: $TASK_KEY${NC}"
+        ;;
+
+    next-epic-task)
+        # Get epic key from session
+        EPIC_KEY=$(grep "epic_key:" "$SESSION_FILE" | sed 's/.*: *//' | tr -d '"')
+
+        if [ -z "$EPIC_KEY" ]; then
+            echo -e "${YELLOW}No epic linked to session${NC}"
+            echo "Use 'set-epic <key>' first"
+            exit 1
+        fi
+
+        # Get next ready task from epic-status
+        "$SCRIPT_DIR/epic-status" "$EPIC_KEY" --next
+        ;;
+
+    *)
+        echo "Usage: ./scripts/update-session <action> [args...]"
+        echo ""
+        echo "Actions:"
+        echo "  agent <name>           - Set current agent"
+        echo "  next-agent             - Move to next agent (validates outputs + lessons)"
+        echo "  skip-agent             - Skip current agent (no validation)"
+        echo "  skip-to <agent>        - Jump to specific agent (skip intermediate)"
+        echo "  phase <number> <name>  - Set current phase"
+        echo "  complete-agent <name>  - Mark agent as completed"
+        echo "  complete-phase <num>   - Mark phase as completed"
+        echo "  add-output <file>      - Add file to outputs"
+        echo "  status <status>        - Set session status"
+        echo "  show                   - Display current session"
+        echo ""
+        echo "Jira Actions:"
+        echo "  set-ticket <key>       - Link Jira ticket to session"
+        echo ""
+        echo "Epic Actions:"
+        echo "  set-epic <key>         - Link Jira epic to session"
+        echo "  epic-task <key>        - Set current epic task"
+        echo "  complete-epic-task <key> - Mark epic task done"
+        echo "  next-epic-task         - Get next ready task from epic"
+        exit 1
+        ;;
+esac

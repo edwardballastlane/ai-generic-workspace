@@ -1,0 +1,791 @@
+#!/usr/bin/env bash
+
+# sync — Cross-machine sync for Lane personal data
+# Usage:
+#   ./scripts/sync init              Interactive setup wizard
+#   ./scripts/sync push [--quick]    Push local data to sync target
+#   ./scripts/sync pull [--quick]    Pull remote data and merge
+#   ./scripts/sync status            Show sync status
+#   ./scripts/sync reset             Remove sync configuration
+#
+# Options:
+#   --quick    Lessons only (used by auto hooks)
+#   --quiet    Suppress output (used by background calls)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+CONFIG_DIR="$ROOT_DIR/.ai-config"
+SYNC_CONFIG="$CONFIG_DIR/sync.yaml"
+
+# Colors (Orange & White theme — matches setup script)
+ORANGE='\033[38;5;208m'
+WHITE='\033[1;37m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# ─── Output helpers ──────────────────────────────────────
+QUIET=false
+
+print_step() {
+    [ "$QUIET" = true ] && return
+    echo -e "${ORANGE}==>${NC} $1"
+}
+
+print_info() {
+    [ "$QUIET" = true ] && return
+    echo -e "${WHITE}   →${NC} $1"
+}
+
+print_success() {
+    [ "$QUIET" = true ] && return
+    echo -e "${ORANGE}✓${NC} $1"
+}
+
+print_warning() {
+    [ "$QUIET" = true ] && return
+    echo -e "${ORANGE}⚠${NC} $1"
+}
+
+print_error() {
+    echo -e "${ORANGE}✗${NC} $1" >&2
+}
+
+# ─── Config helpers ──────────────────────────────────────
+# Read a value from sync.yaml (pure bash, no yq)
+read_config() {
+    local key="$1"
+    local value=""
+    if [ -f "$SYNC_CONFIG" ]; then
+        while IFS= read -r line; do
+            case "$line" in
+                *"${key}:"*)
+                    value="${line#*"${key}:"}"
+                    # Trim whitespace and quotes
+                    value="${value#"${value%%[![:space:]]*}"}"
+                    value="${value%"${value##*[![:space:]]}"}"
+                    value="${value#\"}"
+                    value="${value%\"}"
+                    ;;
+            esac
+        done < "$SYNC_CONFIG"
+    fi
+    echo "$value"
+}
+
+write_config() {
+    local backend="$1"
+    local path="$2"
+    local remote="${3:-}"
+    local auto_push="${4:-true}"
+    local auto_pull="${5:-true}"
+    local machine_id="${6:-$(hostname)}"
+
+    mkdir -p "$CONFIG_DIR"
+    cat > "$SYNC_CONFIG" << EOF
+# Lane Sync Configuration
+# Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+sync:
+  backend: "$backend"
+  path: "$path"
+  remote: "$remote"
+  auto_push: $auto_push
+  auto_pull: $auto_pull
+  last_sync: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  machine_id: "$machine_id"
+EOF
+}
+
+update_last_sync() {
+    if [ -f "$SYNC_CONFIG" ]; then
+        local tmp
+        tmp=$(mktemp)
+        while IFS= read -r line; do
+            case "$line" in
+                *"last_sync:"*)
+                    echo "  last_sync: \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\""
+                    ;;
+                *)
+                    echo "$line"
+                    ;;
+            esac
+        done < "$SYNC_CONFIG" > "$tmp"
+        mv "$tmp" "$SYNC_CONFIG"
+    fi
+}
+
+# ─── Sync folder structure ───────────────────────────────
+# Source dirs (local)
+LESSONS_DIR="$ROOT_DIR/.ai-memory/lessons"
+SESSIONS_DIR="$ROOT_DIR/.ai-memory/sessions"
+MEMORY_INDEX="$ROOT_DIR/.ai-memory/index.yaml"
+CONTEXTS_DIR="$ROOT_DIR/.ai-contexts"
+CLAUDE_MEMORY_DIR="$HOME/.claude/projects/-Users-${USER:-$USERNAME}-Projetos-ai-dev-agent/memory"
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+
+# Build the destination paths inside sync folder
+sync_dest() {
+    local sync_path="$1"
+    echo "$sync_path"
+}
+
+ensure_sync_dirs() {
+    local sync_path="$1"
+    mkdir -p "$sync_path/lessons"
+    mkdir -p "$sync_path/sessions"
+    mkdir -p "$sync_path/contexts"
+    mkdir -p "$sync_path/claude-memory"
+}
+
+# ─── Lesson merge ────────────────────────────────────────
+# Merge remote lessons into local, keeping all unique IDs
+merge_lessons_file() {
+    local local_file="$1"
+    local remote_file="$2"
+
+    # If local doesn't exist, just copy remote
+    if [ ! -f "$local_file" ]; then
+        cp "$remote_file" "$local_file"
+        return
+    fi
+
+    # If remote doesn't exist, nothing to merge
+    if [ ! -f "$remote_file" ]; then
+        return
+    fi
+
+    # Extract local lesson IDs
+    local local_ids=""
+    while IFS= read -r line; do
+        case "$line" in
+            *"- id:"*)
+                local id_val="${line#*"- id:"}"
+                id_val="${id_val#"${id_val%%[![:space:]]*}"}"
+                id_val="${id_val#\"}"
+                id_val="${id_val%\"}"
+                local_ids="$local_ids $id_val"
+                ;;
+        esac
+    done < "$local_file"
+
+    # Parse remote lessons and append missing ones
+    local in_lesson=false
+    local lesson_block=""
+    local lesson_id=""
+    local appended=0
+
+    while IFS= read -r line; do
+        case "$line" in
+            *"- id:"*)
+                # If we had a previous lesson block, check and append
+                if [ -n "$lesson_id" ] && [ -n "$lesson_block" ]; then
+                    local found=false
+                    for lid in $local_ids; do
+                        if [ "$lid" = "$lesson_id" ]; then
+                            found=true
+                            break
+                        fi
+                    done
+                    if [ "$found" = false ]; then
+                        echo "$lesson_block" >> "$local_file"
+                        appended=$((appended + 1))
+                    fi
+                fi
+                # Start new lesson block
+                lesson_id="${line#*"- id:"}"
+                lesson_id="${lesson_id#"${lesson_id%%[![:space:]]*}"}"
+                lesson_id="${lesson_id#\"}"
+                lesson_id="${lesson_id%\"}"
+                lesson_block="$line"
+                in_lesson=true
+                ;;
+            *)
+                if [ "$in_lesson" = true ]; then
+                    # Check if this is a continuation of the lesson (indented)
+                    case "$line" in
+                        "    "*)
+                            lesson_block="$lesson_block
+$line"
+                            ;;
+                        "lessons:"*|"#"*|"project:"*)
+                            # Header lines, skip
+                            in_lesson=false
+                            ;;
+                        "")
+                            # Empty line, skip
+                            ;;
+                        *)
+                            in_lesson=false
+                            ;;
+                    esac
+                fi
+                ;;
+        esac
+    done < "$remote_file"
+
+    # Handle last lesson block
+    if [ -n "$lesson_id" ] && [ -n "$lesson_block" ]; then
+        local found=false
+        for lid in $local_ids; do
+            if [ "$lid" = "$lesson_id" ]; then
+                found=true
+                break
+            fi
+        done
+        if [ "$found" = false ]; then
+            echo "$lesson_block" >> "$local_file"
+            appended=$((appended + 1))
+        fi
+    fi
+
+    if [ "$appended" -gt 0 ]; then
+        print_info "Merged $appended new lesson(s) from remote into $(basename "$local_file")"
+    fi
+}
+
+# ─── Push ────────────────────────────────────────────────
+do_push() {
+    local quick=false
+    for arg in "$@"; do
+        case "$arg" in
+            --quick) quick=true ;;
+            --quiet) QUIET=true ;;
+        esac
+    done
+
+    local sync_path
+    sync_path="$(read_config "path")"
+    local backend
+    backend="$(read_config "backend")"
+
+    if [ -z "$sync_path" ]; then
+        print_error "Sync not configured. Run: ./scripts/sync init"
+        exit 1
+    fi
+
+    ensure_sync_dirs "$sync_path"
+
+    print_step "Pushing data to sync..."
+
+    # Always sync lessons
+    if [ -d "$LESSONS_DIR" ]; then
+        cp -R "$LESSONS_DIR"/* "$sync_path/lessons/" 2>/dev/null || true
+        print_info "Lessons synced"
+    fi
+
+    if [ "$quick" = false ]; then
+        # Sessions
+        if [ -d "$SESSIONS_DIR" ]; then
+            cp -R "$SESSIONS_DIR"/* "$sync_path/sessions/" 2>/dev/null || true
+            print_info "Sessions synced"
+        fi
+
+        # Memory index
+        if [ -f "$MEMORY_INDEX" ]; then
+            cp "$MEMORY_INDEX" "$sync_path/memory-index.yaml"
+            print_info "Memory index synced"
+        fi
+
+        # Contexts (skip tasks/ subfolder)
+        if [ -d "$CONTEXTS_DIR" ]; then
+            for f in "$CONTEXTS_DIR"/*.yaml; do
+                [ -f "$f" ] && cp "$f" "$sync_path/contexts/"
+            done
+            print_info "Contexts synced"
+        fi
+
+        # Claude memory
+        if [ -d "$CLAUDE_MEMORY_DIR" ]; then
+            cp -R "$CLAUDE_MEMORY_DIR"/* "$sync_path/claude-memory/" 2>/dev/null || true
+            print_info "Claude memory synced"
+        fi
+
+        # Claude settings
+        if [ -f "$CLAUDE_SETTINGS" ]; then
+            cp "$CLAUDE_SETTINGS" "$sync_path/claude-settings.json"
+            print_info "Claude settings synced"
+        fi
+    fi
+
+    # Update sync metadata
+    local machine_id
+    machine_id="$(read_config "machine_id")"
+    cat > "$sync_path/.sync-meta.yaml" << EOF
+last_sync:
+  machine: "$machine_id"
+  timestamp: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+EOF
+
+    # Git backend: commit and push
+    if [ "$backend" = "git" ]; then
+        local remote
+        remote="$(read_config "remote")"
+        if [ -n "$remote" ] && [ -d "$sync_path/.git" ]; then
+            (
+                cd "$sync_path"
+                git add -A
+                git diff --cached --quiet 2>/dev/null && {
+                    print_info "No changes to push"
+                    exit 0
+                }
+                git commit -m "sync: $(date -u +%Y-%m-%dT%H:%M:%SZ) from $machine_id" --quiet
+                git push --quiet 2>/dev/null || print_warning "Push failed — will retry next sync"
+            )
+        fi
+    fi
+
+    update_last_sync
+    print_success "Push complete"
+}
+
+# ─── Pull ────────────────────────────────────────────────
+do_pull() {
+    local quick=false
+    for arg in "$@"; do
+        case "$arg" in
+            --quick) quick=true ;;
+            --quiet) QUIET=true ;;
+        esac
+    done
+
+    local sync_path
+    sync_path="$(read_config "path")"
+    local backend
+    backend="$(read_config "backend")"
+
+    if [ -z "$sync_path" ]; then
+        print_error "Sync not configured. Run: ./scripts/sync init"
+        exit 1
+    fi
+
+    if [ ! -d "$sync_path" ]; then
+        print_warning "Sync folder not found: $sync_path"
+        return 0
+    fi
+
+    print_step "Pulling data from sync..."
+
+    # Git backend: pull first
+    if [ "$backend" = "git" ] && [ -d "$sync_path/.git" ]; then
+        (
+            cd "$sync_path"
+            git pull --rebase --quiet 2>/dev/null || print_warning "Git pull failed — using cached data"
+        )
+    fi
+
+    # Always merge lessons
+    mkdir -p "$LESSONS_DIR"
+    if [ -d "$sync_path/lessons" ]; then
+        for remote_file in "$sync_path/lessons"/*.yaml; do
+            [ -f "$remote_file" ] || continue
+            local basename
+            basename="$(basename "$remote_file")"
+            local local_file="$LESSONS_DIR/$basename"
+            merge_lessons_file "$local_file" "$remote_file"
+        done
+        print_info "Lessons merged"
+    fi
+
+    if [ "$quick" = false ]; then
+        # Sessions (append-only — copy new files)
+        if [ -d "$sync_path/sessions" ]; then
+            mkdir -p "$SESSIONS_DIR"
+            for f in "$sync_path/sessions"/*; do
+                [ -f "$f" ] || continue
+                local basename
+                basename="$(basename "$f")"
+                if [ ! -f "$SESSIONS_DIR/$basename" ]; then
+                    cp "$f" "$SESSIONS_DIR/$basename"
+                fi
+            done
+            print_info "Sessions synced"
+        fi
+
+        # Contexts (pull wins — regenerable)
+        if [ -d "$sync_path/contexts" ]; then
+            mkdir -p "$CONTEXTS_DIR"
+            cp "$sync_path/contexts"/*.yaml "$CONTEXTS_DIR/" 2>/dev/null || true
+            print_info "Contexts synced"
+        fi
+
+        # Memory index
+        if [ -f "$sync_path/memory-index.yaml" ]; then
+            mkdir -p "$(dirname "$MEMORY_INDEX")"
+            cp "$sync_path/memory-index.yaml" "$MEMORY_INDEX"
+            print_info "Memory index synced"
+        fi
+
+        # Claude memory (last-write-wins)
+        if [ -d "$sync_path/claude-memory" ]; then
+            mkdir -p "$CLAUDE_MEMORY_DIR"
+            cp -R "$sync_path/claude-memory"/* "$CLAUDE_MEMORY_DIR/" 2>/dev/null || true
+            print_info "Claude memory synced"
+        fi
+
+        # Claude settings (last-write-wins)
+        if [ -f "$sync_path/claude-settings.json" ]; then
+            mkdir -p "$(dirname "$CLAUDE_SETTINGS")"
+            cp "$sync_path/claude-settings.json" "$CLAUDE_SETTINGS"
+            print_info "Claude settings synced"
+        fi
+    fi
+
+    update_last_sync
+    print_success "Pull complete"
+}
+
+# ─── Status ──────────────────────────────────────────────
+do_status() {
+    if [ ! -f "$SYNC_CONFIG" ]; then
+        print_error "Sync not configured. Run: ./scripts/sync init"
+        exit 1
+    fi
+
+    local backend sync_path remote last_sync machine_id auto_push auto_pull
+    backend="$(read_config "backend")"
+    sync_path="$(read_config "path")"
+    remote="$(read_config "remote")"
+    last_sync="$(read_config "last_sync")"
+    machine_id="$(read_config "machine_id")"
+    auto_push="$(read_config "auto_push")"
+    auto_pull="$(read_config "auto_pull")"
+
+    echo ""
+    echo -e "${ORANGE}${BOLD}Lane Sync Status${NC}"
+    echo -e "${DIM}───────────────────────────────────────${NC}"
+    echo ""
+    echo -e "  ${WHITE}Backend:${NC}     $backend"
+    echo -e "  ${WHITE}Path:${NC}        $sync_path"
+    [ -n "$remote" ] && echo -e "  ${WHITE}Remote:${NC}      $remote"
+    echo -e "  ${WHITE}Machine:${NC}     $machine_id"
+    echo -e "  ${WHITE}Last sync:${NC}   $last_sync"
+    echo -e "  ${WHITE}Auto-push:${NC}   $auto_push"
+    echo -e "  ${WHITE}Auto-pull:${NC}   $auto_pull"
+    echo ""
+
+    # File counts
+    local local_lessons=0 synced_lessons=0
+    local local_sessions=0 synced_sessions=0
+
+    if [ -d "$LESSONS_DIR" ]; then
+        local_lessons=$(find "$LESSONS_DIR" -name "*.yaml" -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    if [ -d "$sync_path/lessons" ]; then
+        synced_lessons=$(find "$sync_path/lessons" -name "*.yaml" -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    if [ -d "$SESSIONS_DIR" ]; then
+        local_sessions=$(find "$SESSIONS_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    if [ -d "$sync_path/sessions" ]; then
+        synced_sessions=$(find "$sync_path/sessions" -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+
+    echo -e "  ${WHITE}Files:${NC}"
+    echo "    Lessons:  $local_lessons local / $synced_lessons synced"
+    echo "    Sessions: $local_sessions local / $synced_sessions synced"
+
+    # Check sync folder meta
+    if [ -f "$sync_path/.sync-meta.yaml" ]; then
+        echo ""
+        local meta_machine="" meta_ts=""
+        while IFS= read -r line; do
+            case "$line" in
+                *"machine:"*) meta_machine="${line#*"machine:"}"; meta_machine="${meta_machine#"${meta_machine%%[![:space:]]*}"}"; meta_machine="${meta_machine#\"}"; meta_machine="${meta_machine%\"}" ;;
+                *"timestamp:"*) meta_ts="${line#*"timestamp:"}"; meta_ts="${meta_ts#"${meta_ts%%[![:space:]]*}"}"; meta_ts="${meta_ts#\"}"; meta_ts="${meta_ts%\"}" ;;
+            esac
+        done < "$sync_path/.sync-meta.yaml"
+        echo -e "  ${WHITE}Last synced by:${NC} $meta_machine at $meta_ts"
+    fi
+
+    echo ""
+}
+
+# ─── Reset ───────────────────────────────────────────────
+do_reset() {
+    if [ ! -f "$SYNC_CONFIG" ]; then
+        print_info "Sync is not configured."
+        return 0
+    fi
+
+    local sync_path backend
+    sync_path="$(read_config "path")"
+    backend="$(read_config "backend")"
+
+    echo ""
+    print_warning "This will remove your sync configuration."
+
+    if [ "$backend" = "git" ] && [ -d "$ROOT_DIR/.ai-sync" ]; then
+        echo ""
+        read -p "  Also remove local git sync repo (.ai-sync/)? (y/N): " remove_repo
+        if [[ "$remove_repo" =~ ^[Yy]$ ]]; then
+            rm -rf "$ROOT_DIR/.ai-sync"
+            print_info "Removed .ai-sync/"
+        fi
+    fi
+
+    rm -f "$SYNC_CONFIG"
+    print_success "Sync configuration removed"
+    echo ""
+}
+
+# ─── Init wizard ─────────────────────────────────────────
+do_init() {
+    echo ""
+    echo -e "${ORANGE}${BOLD}Lane Sync Setup${NC}"
+    echo -e "${DIM}Sync lessons, memory, and contexts across machines${NC}"
+    echo ""
+
+    # Machine name
+    local default_machine
+    default_machine="$(hostname)"
+    read -p "  Machine name [$default_machine]: " machine_name
+    machine_name="${machine_name:-$default_machine}"
+
+    # Choose backend
+    echo ""
+    echo -e "  ${WHITE}Choose sync backend:${NC}"
+    echo ""
+    echo -e "    ${ORANGE}1)${NC} Git repo (private repo — works everywhere)"
+    echo -e "    ${ORANGE}2)${NC} iCloud Drive (macOS)"
+    echo -e "    ${ORANGE}3)${NC} Dropbox"
+    echo -e "    ${ORANGE}4)${NC} Google Drive"
+    echo -e "    ${ORANGE}5)${NC} Custom path"
+    echo ""
+    read -p "  Select backend [1-5]: " backend_choice
+
+    local backend="" sync_path="" remote=""
+
+    case "$backend_choice" in
+        1)
+            backend="git"
+            _init_git "$machine_name"
+            return
+            ;;
+        2)
+            backend="icloud"
+            local icloud_base="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
+            if [ ! -d "$icloud_base" ]; then
+                print_error "iCloud Drive not found at: $icloud_base"
+                print_info "Make sure iCloud Drive is enabled in System Settings."
+                exit 1
+            fi
+            sync_path="$icloud_base/LaneSync"
+            mkdir -p "$sync_path"
+            print_success "iCloud sync folder created: $sync_path"
+            ;;
+        3)
+            backend="dropbox"
+            local dropbox_base="$HOME/Dropbox"
+            if [ ! -d "$dropbox_base" ]; then
+                print_error "Dropbox folder not found at: $dropbox_base"
+                print_info "Make sure Dropbox is installed and running."
+                exit 1
+            fi
+            sync_path="$dropbox_base/LaneSync"
+            mkdir -p "$sync_path"
+            print_success "Dropbox sync folder created: $sync_path"
+            ;;
+        4)
+            backend="gdrive"
+            # Auto-detect Google Drive path (multiple macOS locations)
+            local gdrive_path=""
+            for candidate in \
+                "$HOME/Google Drive/My Drive" \
+                "$HOME/Google Drive" \
+                "$HOME/Library/CloudStorage/GoogleDrive-"*/My\ Drive \
+                "$HOME/Library/CloudStorage/GoogleDrive"*; do
+                if [ -d "$candidate" ]; then
+                    gdrive_path="$candidate"
+                    break
+                fi
+            done
+            if [ -z "$gdrive_path" ]; then
+                print_error "Google Drive folder not found."
+                print_info "Searched common macOS locations. Make sure Google Drive is installed."
+                echo ""
+                read -p "  Enter Google Drive path manually: " gdrive_path
+                if [ ! -d "$gdrive_path" ]; then
+                    print_error "Path does not exist: $gdrive_path"
+                    exit 1
+                fi
+            fi
+            sync_path="$gdrive_path/LaneSync"
+            mkdir -p "$sync_path"
+            print_success "Google Drive sync folder created: $sync_path"
+            ;;
+        5)
+            backend="custom"
+            echo ""
+            read -p "  Enter sync folder path: " sync_path
+            if [ -z "$sync_path" ]; then
+                print_error "Path is required."
+                exit 1
+            fi
+            # Expand ~ if present
+            sync_path="${sync_path/#\~/$HOME}"
+            mkdir -p "$sync_path"
+            print_success "Custom sync folder created: $sync_path"
+            ;;
+        *)
+            print_error "Invalid choice."
+            exit 1
+            ;;
+    esac
+
+    _finish_init "$backend" "$sync_path" "" "$machine_name"
+}
+
+_init_git() {
+    local machine_name="$1"
+    local sync_path="$ROOT_DIR/.ai-sync"
+
+    echo ""
+    echo -e "  ${WHITE}Git Sync Setup${NC}"
+    echo -e "  ${DIM}Create a PRIVATE repo on GitHub/GitLab/Bitbucket first.${NC}"
+    echo ""
+    read -p "  Paste the SSH or HTTPS URL: " remote_url
+
+    if [ -z "$remote_url" ]; then
+        print_error "Remote URL is required."
+        exit 1
+    fi
+
+    mkdir -p "$sync_path"
+
+    if [ -d "$sync_path/.git" ]; then
+        print_info "Git repo already exists at .ai-sync/"
+        (cd "$sync_path" && git pull --rebase --quiet 2>/dev/null || true)
+    else
+        # Try to clone (may fail if empty repo)
+        if git clone "$remote_url" "$sync_path" 2>/dev/null; then
+            print_success "Cloned sync repo"
+        else
+            # Empty repo — init locally
+            (
+                cd "$sync_path"
+                git init --quiet
+                git remote add origin "$remote_url"
+            )
+            print_success "Initialized local sync repo"
+        fi
+    fi
+
+    _finish_init "git" "$sync_path" "$remote_url" "$machine_name"
+}
+
+_finish_init() {
+    local backend="$1"
+    local sync_path="$2"
+    local remote="$3"
+    local machine_name="$4"
+
+    ensure_sync_dirs "$sync_path"
+
+    # Check for existing sync data
+    if [ -f "$sync_path/.sync-meta.yaml" ]; then
+        local meta_machine="" meta_ts=""
+        while IFS= read -r line; do
+            case "$line" in
+                *"machine:"*) meta_machine="${line#*"machine:"}"; meta_machine="${meta_machine#"${meta_machine%%[![:space:]]*}"}"; meta_machine="${meta_machine#\"}"; meta_machine="${meta_machine%\"}" ;;
+                *"timestamp:"*) meta_ts="${line#*"timestamp:"}"; meta_ts="${meta_ts#"${meta_ts%%[![:space:]]*}"}"; meta_ts="${meta_ts#\"}"; meta_ts="${meta_ts%\"}" ;;
+            esac
+        done < "$sync_path/.sync-meta.yaml"
+        echo ""
+        print_info "Found data from ${WHITE}$meta_machine${NC}, synced ${WHITE}$meta_ts${NC}"
+        read -p "  Pull existing data? (Y/n): " do_pull
+        if [[ ! "$do_pull" =~ ^[Nn]$ ]]; then
+            # Save config first so pull can use it
+            write_config "$backend" "$sync_path" "$remote" "true" "true" "$machine_name"
+            do_pull
+            echo ""
+        fi
+    else
+        # No existing data — do initial push
+        write_config "$backend" "$sync_path" "$remote" "true" "true" "$machine_name"
+        print_step "Performing initial push..."
+        do_push
+    fi
+
+    # Auto-sync preferences
+    echo ""
+    echo -e "  ${WHITE}Auto-sync preferences:${NC}"
+    read -p "  Auto-push lessons after capture? (Y/n): " auto_push
+    read -p "  Auto-pull on session start? (Y/n): " auto_pull
+
+    local ap_val="true" apl_val="true"
+    [[ "$auto_push" =~ ^[Nn]$ ]] && ap_val="false"
+    [[ "$auto_pull" =~ ^[Nn]$ ]] && apl_val="false"
+
+    write_config "$backend" "$sync_path" "$remote" "$ap_val" "$apl_val" "$machine_name"
+
+    echo ""
+    print_success "Lane Sync configured!"
+    echo ""
+    echo -e "  ${WHITE}Backend:${NC}   $backend"
+    echo -e "  ${WHITE}Path:${NC}      $sync_path"
+    echo -e "  ${WHITE}Machine:${NC}   $machine_name"
+    echo -e "  ${WHITE}Auto-push:${NC} $ap_val"
+    echo -e "  ${WHITE}Auto-pull:${NC} $apl_val"
+    echo ""
+    echo -e "  ${DIM}Run 'sync status' anytime to check sync state.${NC}"
+    echo ""
+}
+
+# ─── Main ────────────────────────────────────────────────
+if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo "Usage: ./scripts/sync <command> [options]"
+    echo ""
+    echo "Commands:"
+    echo "  init              Interactive setup wizard"
+    echo "  push [--quick]    Push local data to sync target"
+    echo "  pull [--quick]    Pull remote data and merge"
+    echo "  status            Show sync status"
+    echo "  reset             Remove sync configuration"
+    echo ""
+    echo "Options:"
+    echo "  --quick    Sync lessons only (faster, used by hooks)"
+    echo "  --quiet    Suppress output (used by background calls)"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/sync init              # Set up sync"
+    echo "  ./scripts/sync push              # Push all data"
+    echo "  ./scripts/sync pull --quick      # Pull lessons only"
+    echo "  ./scripts/sync status            # Check sync state"
+    exit 0
+fi
+
+COMMAND="$1"
+shift
+
+# Parse global flags before command dispatch
+for arg in "$@"; do
+    case "$arg" in
+        --quiet) QUIET=true ;;
+    esac
+done
+
+case "$COMMAND" in
+    init)
+        do_init "$@"
+        ;;
+    push)
+        do_push "$@"
+        ;;
+    pull)
+        do_pull "$@"
+        ;;
+    status)
+        do_status "$@"
+        ;;
+    reset)
+        do_reset "$@"
+        ;;
+    *)
+        print_error "Unknown command: $COMMAND"
+        echo "Run './scripts/sync --help' for usage."
+        exit 1
+        ;;
+esac

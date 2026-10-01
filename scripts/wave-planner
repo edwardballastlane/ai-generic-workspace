@@ -1,0 +1,647 @@
+#!/usr/bin/env bash
+
+# wave-planner - Group Jira epic tasks into parallel execution waves
+# Usage: ./scripts/wave-planner <EPIC-KEY>
+#        echo "PROJ-123: Task (depends: PROJ-100)" | ./scripts/wave-planner
+#
+# Reads .ai-contexts/epic-<KEY>.yaml or accepts task list on stdin.
+# Outputs a markdown execution plan with parallel waves.
+#
+# Options:
+#   --compact       Print compact single-line summary per wave
+#   --json          Output as JSON instead of markdown
+#   --detect-order  Infer dependencies from ticket types/file paths
+
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+CONTEXTS_DIR="$ROOT_DIR/.ai-contexts"
+
+# Colors (only when stdout is a terminal)
+if [ -t 1 ]; then
+    GREEN='\033[0;32m'
+    BLUE='\033[0;34m'
+    YELLOW='\033[1;33m'
+    RED='\033[0;31m'
+    CYAN='\033[0;36m'
+    GRAY='\033[0;90m'
+    NC='\033[0m'
+    BOLD='\033[1m'
+else
+    GREEN='' BLUE='' YELLOW='' RED='' CYAN='' GRAY='' NC='' BOLD=''
+fi
+
+# Parse arguments
+EPIC_KEY=""
+OUTPUT_FORMAT="markdown"
+DETECT_ORDER=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --compact)
+            OUTPUT_FORMAT="compact"
+            shift
+            ;;
+        --json)
+            OUTPUT_FORMAT="json"
+            shift
+            ;;
+        --detect-order)
+            DETECT_ORDER=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: ./scripts/wave-planner <EPIC-KEY>"
+            echo "       echo \"PROJ-123: Task (depends: PROJ-100)\" | ./scripts/wave-planner"
+            echo ""
+            echo "Groups epic tasks into parallel execution waves based on dependencies."
+            echo ""
+            echo "Options:"
+            echo "  --compact       Compact single-line summary per wave"
+            echo "  --json          Output as JSON"
+            echo "  --detect-order  Infer dependencies from ticket types/file paths"
+            echo ""
+            echo "Stdin format (one task per line):"
+            echo "  PROJ-123: Add currency model"
+            echo "  PROJ-124: Add conversion API (depends: PROJ-123)"
+            echo "  PROJ-125: Add unit tests (depends: PROJ-123)"
+            echo "  PROJ-126: Update frontend dropdown"
+            echo "  PROJ-127: Add mobile screen (depends: PROJ-124)"
+            echo ""
+            echo "Examples:"
+            echo "  ./scripts/wave-planner PROJ-100"
+            echo "  ./scripts/wave-planner PROJ-100 --compact"
+            echo "  cat tasks.txt | ./scripts/wave-planner"
+            echo "  cat tasks.txt | ./scripts/wave-planner --detect-order"
+            exit 0
+            ;;
+        *)
+            if [ -z "$EPIC_KEY" ]; then
+                EPIC_KEY="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+# ============================================
+# DATA STRUCTURES
+# ============================================
+# We store tasks in parallel indexed arrays:
+#   TASK_KEYS[i]     - ticket key (e.g. PROJ-123)
+#   TASK_SUMMARIES[i] - summary text
+#   TASK_DEPS[i]     - comma-separated dependency keys
+#   TASK_WAVE[i]     - assigned wave number (0 = unassigned)
+#   TASK_TYPES[i]    - inferred type: model|api|frontend|test|backend|other
+TASK_KEYS=()
+TASK_SUMMARIES=()
+TASK_DEPS=()
+TASK_WAVE=()
+TASK_TYPES=()
+
+# ============================================
+# YAML HELPERS (compatible with epic-status)
+# ============================================
+yaml_get() {
+    local file="$1"
+    local key="$2"
+    grep "^${key}:" "$file" 2>/dev/null | sed "s/^${key}: *//" | tr -d '"' || echo ""
+}
+
+task_get() {
+    local file="$1"
+    local task="$2"
+    local prop="$3"
+    grep -A20 "^  ${task}:" "$file" 2>/dev/null | grep "^    ${prop}:" | head -1 | sed "s/^    ${prop}: *//" | tr -d '"[]' || echo ""
+}
+
+list_tasks() {
+    local file="$1"
+    awk '/^tasks:$/,/^dependency_graph:$/' "$file" | grep '^  [A-Z]' | sed 's/: *$//' | tr -d ' '
+}
+
+# ============================================
+# INFER TASK TYPE
+# ============================================
+infer_type() {
+    local summary="$1"
+    local lower
+    lower=$(echo "$summary" | tr '[:upper:]' '[:lower:]')
+
+    case "$lower" in
+        *model*|*schema*|*migration*|*entity*|*table*)
+            echo "model" ;;
+        *api*|*endpoint*|*route*|*controller*|*service*)
+            echo "api" ;;
+        *frontend*|*ui*|*screen*|*component*|*dropdown*|*page*|*view*|*widget*|*mobile*)
+            echo "frontend" ;;
+        *test*|*spec*|*coverage*|*e2e*|*unit*)
+            echo "test" ;;
+        *backend*|*server*|*database*|*queue*|*worker*|*job*)
+            echo "backend" ;;
+        *)
+            echo "other" ;;
+    esac
+}
+
+# Type ordering for --detect-order: lower number = earlier wave
+type_priority() {
+    case "$1" in
+        model)    echo 1 ;;
+        backend)  echo 2 ;;
+        api)      echo 3 ;;
+        test)     echo 4 ;;
+        frontend) echo 5 ;;
+        other)    echo 3 ;;
+    esac
+}
+
+# ============================================
+# LOAD FROM EPIC YAML
+# ============================================
+load_from_yaml() {
+    local context_file="$1"
+    local tasks
+    tasks=$(list_tasks "$context_file")
+
+    for task_key in $tasks; do
+        local summary blocked_by work_status
+        summary=$(task_get "$context_file" "$task_key" "summary")
+        blocked_by=$(task_get "$context_file" "$task_key" "blocked_by")
+        work_status=$(task_get "$context_file" "$task_key" "work_status")
+
+        TASK_KEYS+=("$task_key")
+        TASK_SUMMARIES+=("$summary")
+        TASK_DEPS+=("$blocked_by")
+        TASK_WAVE+=(0)
+        TASK_TYPES+=("$(infer_type "$summary")")
+    done
+}
+
+# ============================================
+# LOAD FROM STDIN
+# ============================================
+load_from_stdin() {
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^# ]] && continue
+
+        local task_key="" summary="" deps=""
+
+        # Parse: KEY: Summary text (depends: KEY1, KEY2)
+        local re_line='^([A-Z]+-[0-9]+):[[:space:]]*(.*)'
+        local re_deps='\(depends:[[:space:]]*([^)]+)\)'
+        if [[ "$line" =~ $re_line ]]; then
+            task_key="${BASH_REMATCH[1]}"
+            local rest="${BASH_REMATCH[2]}"
+
+            # Extract depends clause
+            if [[ "$rest" =~ $re_deps ]]; then
+                deps="${BASH_REMATCH[1]}"
+                summary="${rest%% (depends:*}"
+            else
+                summary="$rest"
+            fi
+        else
+            # Fallback: treat entire line as summary with auto key
+            task_key="TASK-$((${#TASK_KEYS[@]} + 1))"
+            summary="$line"
+        fi
+
+        # Clean up whitespace
+        summary=$(echo "$summary" | sed 's/^ *//;s/ *$//')
+        deps=$(echo "$deps" | sed 's/^ *//;s/ *$//')
+
+        TASK_KEYS+=("$task_key")
+        TASK_SUMMARIES+=("$summary")
+        TASK_DEPS+=("$deps")
+        TASK_WAVE+=(0)
+        TASK_TYPES+=("$(infer_type "$summary")")
+    done
+}
+
+# ============================================
+# ADD INFERRED DEPENDENCIES
+# ============================================
+add_inferred_deps() {
+    local count=${#TASK_KEYS[@]}
+
+    for ((i = 0; i < count; i++)); do
+        # Only infer dependencies for tasks that have NO explicit deps.
+        # Tasks with explicit "depends:" already have their ordering defined
+        # and adding type-based deps would override the user's intent.
+        local existing="${TASK_DEPS[$i]}"
+        if [ -n "$existing" ]; then
+            continue
+        fi
+
+        local my_type="${TASK_TYPES[$i]}"
+        local my_key="${TASK_KEYS[$i]}"
+        local my_priority
+        my_priority=$(type_priority "$my_type")
+
+        for ((j = 0; j < count; j++)); do
+            [ "$i" -eq "$j" ] && continue
+            local other_type="${TASK_TYPES[$j]}"
+            local other_priority
+            other_priority=$(type_priority "$other_type")
+
+            # Only add inferred dep if the other task has a strictly lower
+            # priority number (meaning it should come first)
+            if [ "$other_priority" -lt "$my_priority" ]; then
+                local other_key="${TASK_KEYS[$j]}"
+
+                # Skip if the other task already depends on us (would create a cycle)
+                if [[ "${TASK_DEPS[$j]}" == *"$my_key"* ]]; then
+                    continue
+                fi
+
+                local current="${TASK_DEPS[$i]}"
+
+                # Add inferred dependency
+                if [ -z "$current" ]; then
+                    TASK_DEPS[$i]="$other_key"
+                else
+                    TASK_DEPS[$i]="$current, $other_key"
+                fi
+            fi
+        done
+    done
+}
+
+# ============================================
+# WAVE ASSIGNMENT (TOPOLOGICAL SORT)
+# ============================================
+assign_waves() {
+    local count=${#TASK_KEYS[@]}
+    local changed=true
+    local max_iterations=$((count + 1))
+    local iteration=0
+
+    # First pass: tasks with no dependencies go to wave 1
+    for ((i = 0; i < count; i++)); do
+        if [ -z "${TASK_DEPS[$i]}" ]; then
+            TASK_WAVE[$i]=1
+        fi
+    done
+
+    # Iterative pass: assign wave = max(dep waves) + 1
+    while $changed && [ $iteration -lt $max_iterations ]; do
+        changed=false
+        iteration=$((iteration + 1))
+
+        for ((i = 0; i < count; i++)); do
+            # Skip already-assigned tasks
+            [ "${TASK_WAVE[$i]}" -gt 0 ] && continue
+
+            local deps="${TASK_DEPS[$i]}"
+            local max_dep_wave=0
+            local all_deps_assigned=true
+
+            # Parse comma-separated dependencies
+            IFS=', ' read -ra dep_list <<< "$deps"
+            for dep in "${dep_list[@]}"; do
+                dep=$(echo "$dep" | tr -d ' ')
+                [ -z "$dep" ] && continue
+
+                # Find this dependency in our task list
+                local dep_wave=0
+                local dep_found=false
+                for ((j = 0; j < count; j++)); do
+                    if [ "${TASK_KEYS[$j]}" = "$dep" ]; then
+                        dep_wave=${TASK_WAVE[$j]}
+                        dep_found=true
+                        break
+                    fi
+                done
+
+                if ! $dep_found; then
+                    # Dependency not in our task list; treat as satisfied
+                    # (external dependency, already completed, etc.)
+                    continue
+                fi
+
+                if [ "$dep_wave" -eq 0 ]; then
+                    all_deps_assigned=false
+                    break
+                fi
+
+                if [ "$dep_wave" -gt "$max_dep_wave" ]; then
+                    max_dep_wave=$dep_wave
+                fi
+            done
+
+            if $all_deps_assigned; then
+                TASK_WAVE[$i]=$((max_dep_wave + 1))
+                changed=true
+            fi
+        done
+    done
+
+    # Detect circular dependencies: any task still at wave 0
+    local has_cycle=false
+    local max_assigned=0
+    for ((i = 0; i < count; i++)); do
+        if [ "${TASK_WAVE[$i]}" -gt "$max_assigned" ]; then
+            max_assigned=${TASK_WAVE[$i]}
+        fi
+    done
+
+    local fallback_wave=$((max_assigned + 1))
+    for ((i = 0; i < count; i++)); do
+        if [ "${TASK_WAVE[$i]}" -eq 0 ]; then
+            has_cycle=true
+            echo -e "${RED}Warning: Circular dependency detected for ${TASK_KEYS[$i]}${NC}" >&2
+            echo -e "${GRAY}  Dependencies: ${TASK_DEPS[$i]}${NC}" >&2
+            TASK_WAVE[$i]=$fallback_wave
+        fi
+    done
+
+    if $has_cycle; then
+        echo -e "${YELLOW}Circular tasks placed in fallback Wave ${fallback_wave}.${NC}" >&2
+        echo "" >&2
+    fi
+}
+
+# ============================================
+# COMPUTE STATS
+# ============================================
+get_max_wave() {
+    local max=0
+    for w in "${TASK_WAVE[@]}"; do
+        [ "$w" -gt "$max" ] && max=$w
+    done
+    echo "$max"
+}
+
+get_wave_tasks() {
+    local target_wave=$1
+    local count=${#TASK_KEYS[@]}
+    local result=()
+    for ((i = 0; i < count; i++)); do
+        if [ "${TASK_WAVE[$i]}" -eq "$target_wave" ]; then
+            result+=("$i")
+        fi
+    done
+    echo "${result[@]}"
+}
+
+get_max_parallelism() {
+    local max_wave
+    max_wave=$(get_max_wave)
+    local max_p=0
+    for ((w = 1; w <= max_wave; w++)); do
+        local indices
+        indices=$(get_wave_tasks "$w")
+        local count=0
+        for _ in $indices; do
+            count=$((count + 1))
+        done
+        [ "$count" -gt "$max_p" ] && max_p=$count
+    done
+    echo "$max_p"
+}
+
+# ============================================
+# DESCRIBE WAVE DEPENDENCIES
+# ============================================
+describe_wave_deps() {
+    local wave=$1
+    if [ "$wave" -eq 1 ]; then
+        echo "no dependencies"
+        return
+    fi
+
+    # Collect which earlier waves this wave depends on
+    local dep_waves=()
+    local indices
+    indices=$(get_wave_tasks "$wave")
+    for idx in $indices; do
+        local deps="${TASK_DEPS[$idx]}"
+        IFS=', ' read -ra dep_list <<< "$deps"
+        for dep in "${dep_list[@]}"; do
+            dep=$(echo "$dep" | tr -d ' ')
+            [ -z "$dep" ] && continue
+            local count=${#TASK_KEYS[@]}
+            for ((j = 0; j < count; j++)); do
+                if [ "${TASK_KEYS[$j]}" = "$dep" ]; then
+                    local dw="${TASK_WAVE[$j]}"
+                    # Add to dep_waves if not already there
+                    local found=false
+                    for existing in "${dep_waves[@]}"; do
+                        [ "$existing" = "$dw" ] && found=true
+                    done
+                    $found || dep_waves+=("$dw")
+                fi
+            done
+        done
+    done
+
+    if [ ${#dep_waves[@]} -eq 0 ]; then
+        echo "no dependencies"
+    elif [ ${#dep_waves[@]} -eq 1 ]; then
+        echo "depends on Wave ${dep_waves[0]}"
+    else
+        # Sort and join
+        local sorted
+        sorted=$(printf '%s\n' "${dep_waves[@]}" | sort -n | tr '\n' ',' | sed 's/,$//')
+        echo "depends on Waves $sorted"
+    fi
+}
+
+# ============================================
+# OUTPUT: MARKDOWN
+# ============================================
+output_markdown() {
+    local max_wave
+    max_wave=$(get_max_wave)
+    local total=${#TASK_KEYS[@]}
+    local max_p
+    max_p=$(get_max_parallelism)
+
+    local epic_label="${EPIC_KEY:-stdin}"
+
+    echo "## Wave Execution Plan: ${epic_label}"
+    echo ""
+
+    for ((w = 1; w <= max_wave; w++)); do
+        local indices
+        indices=$(get_wave_tasks "$w")
+        local wave_count=0
+        for _ in $indices; do
+            wave_count=$((wave_count + 1))
+        done
+
+        local dep_desc
+        dep_desc=$(describe_wave_deps "$w")
+
+        local parallel_label=""
+        if [ "$wave_count" -gt 1 ]; then
+            parallel_label="parallel - "
+        fi
+
+        echo "### Wave ${w} (${parallel_label}${dep_desc})"
+        for idx in $indices; do
+            echo "- [ ] ${TASK_KEYS[$idx]}: ${TASK_SUMMARIES[$idx]}"
+        done
+        echo ""
+    done
+
+    echo "---"
+    echo "Estimated: ${max_wave} waves, ${total} tasks, max parallelism: ${max_p}"
+}
+
+# ============================================
+# OUTPUT: COMPACT
+# ============================================
+output_compact() {
+    local max_wave
+    max_wave=$(get_max_wave)
+
+    for ((w = 1; w <= max_wave; w++)); do
+        local indices
+        indices=$(get_wave_tasks "$w")
+        local keys=()
+        for idx in $indices; do
+            keys+=("${TASK_KEYS[$idx]}")
+        done
+        local joined
+        joined=$(printf ', %s' "${keys[@]}")
+        joined="${joined:2}"
+
+        local wave_count=${#keys[@]}
+        local label="sequential"
+        [ "$wave_count" -gt 1 ] && label="parallel"
+
+        echo "Wave ${w} (${label}): ${joined}"
+    done
+}
+
+# ============================================
+# OUTPUT: JSON
+# ============================================
+output_json() {
+    local max_wave
+    max_wave=$(get_max_wave)
+    local total=${#TASK_KEYS[@]}
+    local max_p
+    max_p=$(get_max_parallelism)
+    local epic_label="${EPIC_KEY:-stdin}"
+
+    echo "{"
+    echo "  \"epic\": \"${epic_label}\","
+    echo "  \"total_tasks\": ${total},"
+    echo "  \"total_waves\": ${max_wave},"
+    echo "  \"max_parallelism\": ${max_p},"
+    echo "  \"waves\": ["
+
+    for ((w = 1; w <= max_wave; w++)); do
+        local indices
+        indices=$(get_wave_tasks "$w")
+        local wave_count=0
+        for _ in $indices; do
+            wave_count=$((wave_count + 1))
+        done
+
+        local dep_desc
+        dep_desc=$(describe_wave_deps "$w")
+
+        echo "    {"
+        echo "      \"wave\": ${w},"
+        echo "      \"parallel\": $([ "$wave_count" -gt 1 ] && echo "true" || echo "false"),"
+        echo "      \"description\": \"${dep_desc}\","
+        echo "      \"tasks\": ["
+
+        local first=true
+        for idx in $indices; do
+            if $first; then
+                first=false
+            else
+                echo ","
+            fi
+            local deps_json=""
+            if [ -n "${TASK_DEPS[$idx]}" ]; then
+                local dep_arr=()
+                IFS=', ' read -ra dep_arr <<< "${TASK_DEPS[$idx]}"
+                local dep_items=""
+                for d in "${dep_arr[@]}"; do
+                    d=$(echo "$d" | tr -d ' ')
+                    [ -z "$d" ] && continue
+                    [ -n "$dep_items" ] && dep_items="${dep_items}, "
+                    dep_items="${dep_items}\"${d}\""
+                done
+                deps_json="$dep_items"
+            fi
+            # Escape JSON special chars in summary
+            local safe_summary="${TASK_SUMMARIES[$idx]}"
+            safe_summary="${safe_summary//\\/\\\\}"
+            safe_summary="${safe_summary//\"/\\\"}"
+            safe_summary="${safe_summary//$'\n'/\\n}"
+            safe_summary="${safe_summary//$'\t'/\\t}"
+            printf '        {"key": "%s", "summary": "%s", "type": "%s", "depends": [%s]}' \
+                "${TASK_KEYS[$idx]}" "$safe_summary" "${TASK_TYPES[$idx]}" "$deps_json"
+        done
+        echo ""
+        echo "      ]"
+
+        if [ "$w" -lt "$max_wave" ]; then
+            echo "    },"
+        else
+            echo "    }"
+        fi
+    done
+
+    echo "  ]"
+    echo "}"
+}
+
+# ============================================
+# MAIN
+# ============================================
+
+# Load tasks from epic YAML or stdin
+if [ -n "$EPIC_KEY" ]; then
+    CONTEXT_FILE="$CONTEXTS_DIR/epic-${EPIC_KEY}.yaml"
+
+    if [ ! -f "$CONTEXT_FILE" ]; then
+        echo -e "${RED}Error: Epic context not found${NC}" >&2
+        echo "File not found: $CONTEXT_FILE" >&2
+        echo "" >&2
+        echo "Run /jira-epic $EPIC_KEY to generate the context file," >&2
+        echo "or pipe a task list on stdin:" >&2
+        echo "  echo \"PROJ-123: Add currency model\" | ./scripts/wave-planner" >&2
+        exit 1
+    fi
+
+    load_from_yaml "$CONTEXT_FILE"
+elif [ ! -t 0 ]; then
+    # Reading from stdin (pipe or redirect)
+    load_from_stdin
+else
+    echo -e "${RED}Error: No epic key and no stdin input${NC}" >&2
+    echo "Usage: ./scripts/wave-planner <EPIC-KEY>" >&2
+    echo "       echo \"PROJ-123: Task (depends: PROJ-100)\" | ./scripts/wave-planner" >&2
+    exit 1
+fi
+
+# Validate we have tasks
+if [ ${#TASK_KEYS[@]} -eq 0 ]; then
+    echo -e "${RED}Error: No tasks found${NC}" >&2
+    exit 1
+fi
+
+# Optionally infer dependency order from ticket types
+if $DETECT_ORDER; then
+    add_inferred_deps
+fi
+
+# Assign waves
+assign_waves
+
+# Output
+case "$OUTPUT_FORMAT" in
+    markdown) output_markdown ;;
+    compact)  output_compact ;;
+    json)     output_json ;;
+esac

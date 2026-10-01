@@ -1,0 +1,50 @@
+{
+  "epic": "stdin",
+  "total_tasks": 14,
+  "total_waves": 4,
+  "max_parallelism": 5,
+  "waves": [
+    {
+      "wave": 1,
+      "parallel": true,
+      "description": "no dependencies",
+      "tasks": [
+        {"key": "T-1", "summary": "Create scripts/_lib/ai-estimates.js cache module", "type": "other", "depends": []},
+        {"key": "T-3", "summary": "Create set-ai-estimate.sh and .cmd stubs", "type": "other", "depends": []},
+        {"key": "T-4", "summary": "Add ai_estimated to session-stop.js buildEvent and autoCommit staging", "type": "frontend", "depends": []},
+        {"key": "T-9", "summary": "Add --story-points flag to create-jira-issue.js", "type": "other", "depends": []}
+      ]
+    },
+    {
+      "wave": 2,
+      "parallel": true,
+      "description": "depends on Wave 1",
+      "tasks": [
+        {"key": "T-2", "summary": "Build scripts/set-ai-estimate.js CLI", "type": "frontend", "depends": ["T-1"]},
+        {"key": "T-5", "summary": "Extend tests/hooks/session-stop.test.js for ai_estimated", "type": "test", "depends": ["T-4"]},
+        {"key": "T-7", "summary": "Add AI Est column, accuracy tile, AI-SP per 1M column to token-dashboard.js", "type": "other", "depends": ["T-1"]},
+        {"key": "T-14", "summary": "Write tests/scripts/create-jira-issue.test.js for --story-points", "type": "test", "depends": ["T-9"]}
+      ]
+    },
+    {
+      "wave": 3,
+      "parallel": true,
+      "description": "depends on Waves 1,2",
+      "tasks": [
+        {"key": "T-6", "summary": "Write tests/scripts/set-ai-estimate.test.js", "type": "test", "depends": ["T-2"]},
+        {"key": "T-8", "summary": "Extend tests/scripts/token-dashboard.test.js for AI surfaces", "type": "test", "depends": ["T-7"]},
+        {"key": "T-10", "summary": "Rewrite work-ticket.md create-flow and Story Point Gate", "type": "other", "depends": ["T-2", "T-9"]},
+        {"key": "T-11", "summary": "Update CLAUDE.md docs for ai_estimated and ai-estimates cache", "type": "other", "depends": ["T-2", "T-4"]},
+        {"key": "T-12", "summary": "Document set-ai-estimate.js in docs/reference/scripts.md", "type": "other", "depends": ["T-2", "T-3"]}
+      ]
+    },
+    {
+      "wave": 4,
+      "parallel": false,
+      "description": "depends on Waves 1,2,3",
+      "tasks": [
+        {"key": "T-13", "summary": "Final review, run npm test, verify all 31 ACs", "type": "frontend", "depends": ["T-1", "T-2", "T-3", "T-4", "T-5", "T-6", "T-7", "T-8", "T-9", "T-10", "T-11", "T-12", "T-14"]}
+      ]
+    }
+  ]
+}

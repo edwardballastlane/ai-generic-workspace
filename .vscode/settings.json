@@ -1,0 +1,35 @@
+{
+  // Follow symlinks so agent/_projects/* are searchable
+  "search.followSymlinks": true,
+  "search.useIgnoreFiles": false,
+
+  // Exclude heavy dirs from search (performance)
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.git": true,
+    "**/.next": true,
+    "**/coverage": true,
+    "**/__pycache__": true,
+    "**/package-lock.json": true,
+    "**/yarn.lock": true,
+    "**/pnpm-lock.yaml": true
+  },
+
+  // Also exclude from file watcher (reduces CPU)
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true
+  },
+
+  // Make symlinked projects visible in explorer
+  "explorer.excludeGitIgnore": false,
+
+  // Useful for the Lane workspace
+  "files.associations": {
+    "*.yaml": "yaml"
+  }
+}

@@ -1,0 +1,1448 @@
+[
+  {
+    "id": "udya0x84",
+    "text": "Never pass large data payloads through shell variable expansion or command-line arguments; write to temporary files first and read from them to avoid \"Argument list too long\" errors.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 38,
+    "createdAt": "2026-02-17T22:36:19.074Z",
+    "lastReinforced": "2026-03-24T15:55:12.158Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "eqdlcvnw",
+    "text": "When investigating unfamiliar codebases, read source files and understand existing code structure before attempting fixes, rather than relying solely on project setup or scaffolding commands.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-02-17T19:26:21.585Z",
+    "lastReinforced": "2026-03-24T15:55:11.716Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "ajdxf1n7",
+    "text": "Always document file paths, database schemas, and error resolutions with concrete details so they can be referenced later; never leave key technical context as vague summaries",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-02-17T19:26:39.239Z",
+    "lastReinforced": "2026-03-24T15:55:11.807Z",
+    "categories": [
+      "file-editing",
+      "debugging"
+    ]
+  },
+  {
+    "id": "etzku699",
+    "text": "When a user explicitly says to skip something (e.g., \"ignore unit tests\"), immediately comply and remove any related artifacts rather than continuing to generate or propose them.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-02T20:53:23.146Z",
+    "lastReinforced": "2026-03-24T15:55:12.523Z",
+    "categories": [
+      "testing"
+    ]
+  },
+  {
+    "id": "iswie2ov",
+    "text": "When a user dislikes a code pattern, immediately propose concrete cleaner alternatives (wrapper functions, decorators, helpers) rather than defending the existing approach.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-02T20:54:22.443Z",
+    "lastReinforced": "2026-03-24T15:55:12.580Z",
+    "categories": [
+      "architecture"
+    ]
+  },
+  {
+    "id": "a18wy4yk",
+    "text": "After gathering research from multiple sources, categorize and prioritize findings explicitly — distinguish critical items from nice-to-haves before presenting recommendations.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-02T20:55:13.312Z",
+    "lastReinforced": "2026-03-24T15:55:12.634Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "698af86x",
+    "text": "When debugging test failures, always include the full error message, exact file path, and line number so the root cause can be located immediately.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-02T20:55:44.894Z",
+    "lastReinforced": "2026-03-24T15:55:12.688Z",
+    "categories": [
+      "file-editing",
+      "debugging",
+      "testing"
+    ]
+  },
+  {
+    "id": "hs1vq1ht",
+    "text": "When tracing code paths across multiple files, reference specific file paths and line numbers and show how functions connect to each other through the call chain.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:03:29.034Z",
+    "lastReinforced": "2026-03-24T15:55:12.796Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "aiq6jk9w",
+    "text": "When documenting bugs, include a table mapping each file, line number, specific problem, and downstream impact to make the root cause chain explicitly visible.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:37:16.353Z",
+    "lastReinforced": "2026-03-24T15:55:12.960Z",
+    "categories": [
+      "file-editing",
+      "debugging"
+    ]
+  },
+  {
+    "id": "at5v24te",
+    "text": "Structure code exploration results into clearly labeled sections (e.g., location, imports, usage sites, key insights) so findings are immediately actionable for the next implementation step.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:37:25.394Z",
+    "lastReinforced": "2026-03-24T15:55:13.072Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "ijnp5dfn",
+    "text": "When multiple testing strategies are viable, present options to the user for decision rather than repeatedly revising the approach. Decide once, execute once.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:37:55.854Z",
+    "lastReinforced": "2026-03-24T15:55:13.128Z",
+    "categories": [
+      "planning"
+    ]
+  },
+  {
+    "id": "snsdwstj",
+    "text": "Before ending a session with uncommitted or uncertain work, either complete and verify it or explicitly mark it as WIP. Never commit incomplete work across session boundaries.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:38:26.866Z",
+    "lastReinforced": "2026-03-24T15:55:13.143Z",
+    "categories": [
+      "git"
+    ]
+  },
+  {
+    "id": "uonem20l",
+    "text": "After reverting a change to a file, document WHY it was reverted. Do not re-attempt the same change without a different, validated approach.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:39:00.477Z",
+    "lastReinforced": "2026-03-24T15:55:13.159Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "yzcvw18x",
+    "text": "Before benchmarking or debugging performance of any operation, trace its dependency graph to identify all external API calls, and verify those endpoints are healthy first.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:40:13.966Z",
+    "lastReinforced": "2026-03-24T15:55:13.230Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "4ztushu8",
+    "text": "For content-heavy files (presentations, docs), draft the full content in conversation first. Only write to the file once the structure and content are finalized — avoid using the file as a scratchpad.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:41:31.323Z",
+    "lastReinforced": "2026-03-24T15:55:13.341Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "j26mlg5b",
+    "text": "When writing example-driven content, select and finalize all examples before writing them into the file. Do not iterate on example choice inside the file.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:42:08.022Z",
+    "lastReinforced": "2026-03-24T15:55:13.396Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "ovor9nxq",
+    "text": "For batch creation of similar content files (slides, docs, configs), establish the working approach on the first file, then apply it consistently to all remaining files.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:42:47.220Z",
+    "lastReinforced": "2026-03-24T15:55:13.451Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "yvxluyxx",
+    "text": "Before undoing changes, decide the exact end state you want and execute it in one step. Plan the undo strategy before starting — don't chain exploratory git operations.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:47:12.908Z",
+    "lastReinforced": "2026-03-24T15:55:13.509Z",
+    "categories": [
+      "git",
+      "planning"
+    ]
+  },
+  {
+    "id": "trn2neag",
+    "text": "When the same type of edit applies to many files, define the transformation once and apply uniformly. If edits keep failing, the transformation definition is wrong — fix that, not the files.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:49:27.176Z",
+    "lastReinforced": "2026-03-24T15:55:13.593Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "amjv2kmf",
+    "text": "After 2 consecutive errors on the same operation, stop and diagnose (check paths, permissions, disk space) before retrying. Never retry blindly a third time.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:50:00.106Z",
+    "lastReinforced": "2026-03-24T15:55:13.608Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "ycw619ey",
+    "text": "For large content generation tasks (5+ files), always produce a structured outline and get explicit user approval before generating any content. The cost of a planning step is far less than reverting hours of work.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 29,
+    "createdAt": "2026-03-04T19:48:53.699Z",
+    "lastReinforced": "2026-03-24T15:55:13.579Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "4rdndqau",
+    "text": "When stuck in a retry loop (>2 attempts), stop completely. Re-evaluate whether the current approach is viable before trying again. Consider an entirely different strategy.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 28,
+    "createdAt": "2026-03-04T19:44:32.289Z",
+    "lastReinforced": "2026-03-24T15:55:13.481Z",
+    "categories": [
+      "planning"
+    ]
+  },
+  {
+    "id": "dit7k0vn",
+    "text": "Never pass binary or encoded data through text-based processing pipelines; validate that input chunks contain readable text content before attempting extraction or analysis.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 27,
+    "createdAt": "2026-02-17T19:26:49.708Z",
+    "lastReinforced": "2026-03-13T17:09:21.152Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "38aouzj6",
+    "text": "Don't build tooling to observe a known failure — fix or work around the failure itself. New scripts should solve problems, not just report them.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:01:37.505Z",
+    "lastReinforced": "2026-03-24T15:55:13.690Z",
+    "categories": [
+      "deployment"
+    ]
+  },
+  {
+    "id": "1eb5erva",
+    "text": "After applying any code change, verify the change is in place before running tests. Read the modified file back to confirm — never assume an edit succeeded.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:02:12.655Z",
+    "lastReinforced": "2026-03-24T15:55:13.744Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "udxqgt9l",
+    "text": "For files with complex patterns (enums, DSLs, generated structures), read the entire file and understand the pattern before making any edits. Plan all changes as one atomic edit.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:04:27.290Z",
+    "lastReinforced": "2026-03-24T15:55:13.869Z",
+    "categories": [
+      "file-editing",
+      "architecture",
+      "planning"
+    ]
+  },
+  {
+    "id": "q0y1sjvz",
+    "text": "For scripts with multiple integration points (shell commands, browser automation, file I/O), write a complete design with all steps before coding. One-pass implementation beats iterative rewriting.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:07:08.099Z",
+    "lastReinforced": "2026-03-24T15:55:13.969Z",
+    "categories": [
+      "file-editing",
+      "architecture"
+    ]
+  },
+  {
+    "id": "zlvlmk8s",
+    "text": "For structured files like ICS/vCal, gather all content changes needed, then make a single comprehensive edit rather than iterative patches.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:07:34.743Z",
+    "lastReinforced": "2026-03-24T15:55:14.025Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "jxwfyyz5",
+    "text": "When making similar edits across multiple files, perfect the pattern on one file first, then apply the validated pattern to remaining files in a single pass.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 19,
+    "createdAt": "2026-03-13T17:05:37.392Z",
+    "lastReinforced": "2026-03-24T15:55:13.899Z",
+    "categories": [
+      "file-editing",
+      "architecture"
+    ]
+  },
+  {
+    "id": "oaib88dw",
+    "text": "When a long-running process is confirmed working, don't monitor it in a tight loop. Calculate expected completion time, set one check, and move on to other work.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 17,
+    "createdAt": "2026-03-13T17:05:01.845Z",
+    "lastReinforced": "2026-03-24T15:55:13.884Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "4zkqc6jc",
+    "text": "When bulk operations fail due to an already-identified external dependency issue, stop observing logs and either fix the dependency, mock it, or abort the operation.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-03-13T17:02:46.970Z",
+    "lastReinforced": "2026-03-24T15:55:13.758Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "43gvemjc",
+    "text": "For slides with complex layouts (grids, diagrams), describe the visual structure and content outline first, get approval, then implement the markup.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-03-13T17:06:44.532Z",
+    "lastReinforced": "2026-03-24T15:55:13.914Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "pblxw5q2",
+    "text": "Always validate variables for `undefined`/`null` before applying type coercion operators (like unary `+`), since `+undefined` silently produces `NaN` rather than throwing an error.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 32,
+    "createdAt": "2026-03-24T15:55:11.514Z",
+    "lastReinforced": "2026-04-22T03:25:33.328Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "s6l3h5qg",
+    "text": "When rebuilding Docker services from private registries, authenticate with the registry first using the correct AWS profile before running `--build`, to avoid wasted time on 403 errors.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 22,
+    "createdAt": "2026-04-09T00:03:39.453Z",
+    "lastReinforced": "2026-04-22T03:25:33.340Z",
+    "categories": [
+      "config",
+      "security",
+      "deployment"
+    ]
+  },
+  {
+    "id": "cu7ysn8f",
+    "text": "Validate all type-coerced parameters (e.g., `+value`, `parseInt`) with explicit undefined/null checks before passing them to downstream services or queries.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-09T00:04:10.627Z",
+    "lastReinforced": "2026-04-22T03:25:33.347Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "m0wi2tw3",
+    "text": "When rebuilding Docker services from private registries, always rebuild the container image properly instead of copying files directly into the running container as a temporary fix.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-09T00:09:11.164Z",
+    "lastReinforced": "2026-04-22T03:25:33.352Z",
+    "categories": [
+      "config"
+    ]
+  },
+  {
+    "id": "mnsngk11",
+    "text": "Always verify that output contains actionable, human-readable information (file paths, error descriptions, numbered steps) rather than raw encoded or binary data before presenting results.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-09T00:09:25.454Z",
+    "lastReinforced": "2026-04-22T03:25:33.357Z",
+    "categories": [
+      "file-editing",
+      "debugging"
+    ]
+  },
+  {
+    "id": "208brb0q",
+    "text": "Always read the actual source code of every function in the call chain before diagnosing a bug — never reason from descriptions or assumptions alone.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-08T22:28:48.111Z",
+    "lastReinforced": "2026-04-22T03:25:33.361Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "zj301rnx",
+    "text": "When repeated validation errors reference the same enum mismatch pattern, fix the transformation at the mapping layer rather than correcting individual records.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-08T22:28:53.132Z",
+    "lastReinforced": "2026-04-22T03:25:33.366Z",
+    "categories": [
+      "architecture"
+    ]
+  },
+  {
+    "id": "konvcdpc",
+    "text": "Document each debugging step with the action taken, the resulting error, and the next hypothesis so the troubleshooting chain remains traceable.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-16T17:12:37.339Z",
+    "lastReinforced": "2026-04-22T03:25:33.370Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "nw23dlmf",
+    "text": "Check `~/.aws/credentials` for available profiles before assuming the default profile has access to private registries.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-16T17:12:46.398Z",
+    "lastReinforced": "2026-04-22T03:25:33.374Z",
+    "categories": [
+      "security"
+    ]
+  },
+  {
+    "id": "ksrcey67",
+    "text": "Document architectural constants (concurrency limits, chunk sizes, inter-chunk delays) with their specific values and purpose alongside the pattern description.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-16T17:12:55.783Z",
+    "lastReinforced": "2026-04-22T03:25:33.378Z",
+    "categories": [
+      "architecture"
+    ]
+  },
+  {
+    "id": "9cdusph2",
+    "text": "Always decode and inspect JWT tokens to confirm user identity, role, and permissions before debugging authorization-related issues.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-16T17:13:04.250Z",
+    "lastReinforced": "2026-04-22T03:25:33.382Z",
+    "categories": [
+      "security"
+    ]
+  },
+  {
+    "id": "jml7pmt6",
+    "text": "Always document multi-step workflows with numbered steps and explicit quality gates; never present raw API calls with inline script parsing as a deliverable.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-22T02:55:07.281Z",
+    "lastReinforced": "2026-04-22T03:25:33.389Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "rlt81zwh",
+    "text": "When describing calculation bug fixes, specify the exact file path, line number, and mathematical reasoning explaining why the current logic is wrong and what the correct operation should be.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-22T02:55:28.911Z",
+    "lastReinforced": "2026-04-22T03:25:33.397Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "9kbyqhco",
+    "text": "When documenting financial or mathematical logic, explicitly state the correct order of operations and warn about common pitfalls (e.g., double-counting) with concrete before/after formulas.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-22T02:55:38.721Z",
+    "lastReinforced": "2026-04-22T03:25:33.402Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "kpabhw9y",
+    "text": "When modifying duplicated logic, identify and list ALL locations where the code exists and flag silent divergence risks before making any changes.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 18,
+    "createdAt": "2026-04-22T02:55:17.315Z",
+    "lastReinforced": "2026-04-22T03:25:33.393Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "jbehd7w8",
+    "text": "Implement a single upstream deduplication step (content hash + normalized-text key) that runs before any proposal enters the validator, eliminating the repeated-evaluation class of failure entirely.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-24T20:34:32.148Z",
+    "lastReinforced": "2026-04-24T21:22:32.154Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "nppfrtn9",
+    "text": "During multi-step e2e verification, append each check's result (timestamp, action, observed value) to a single `verification.log` file, and produce the summary from that log rather than reconstructing state from memory.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-24T20:48:49.518Z",
+    "lastReinforced": "2026-04-24T21:22:32.486Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "rwikxivw",
+    "text": "Persist `(session_id, detector, span_hash)` triples and dedupe emissions against that set before writing to the failures log.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:32:26.389Z",
+    "lastReinforced": "2026-04-24T21:22:32.116Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "nmw6axhp",
+    "text": "Always remove redundant context injection that duplicates functionality handled elsewhere (e.g., drop per-prompt lesson pointers when an automated rules system already injects keyword-matched rules).",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:43:30.819Z",
+    "lastReinforced": "2026-04-24T21:22:32.450Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "s7mwkgnd",
+    "text": "Add a pre-write guard that blocks Write/Edit operations targeting `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, and similar global config paths unless the user's most recent message explicitly references that file.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 18,
+    "createdAt": "2026-04-24T20:46:19.730Z",
+    "lastReinforced": "2026-04-30T13:02:40.307Z",
+    "categories": [
+      "file-editing",
+      "config"
+    ]
+  },
+  {
+    "id": "dnw0rtpr",
+    "text": "When a scratch/temporary file is edited ≥2 times within a short window, stop and consolidate changes into a single Write call with the finalized content; do not iterate on throwaway files.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:36:50.576Z",
+    "lastReinforced": "2026-04-30T13:02:40.098Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "2blczr29",
+    "text": "Before emitting a rule proposal, run a keyword search over `rules.json` and `rules-shared.json` on the proposed directive's key nouns/verbs; if any existing rule's directive matches, update that rule's reinforcement count instead of proposing new.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:38:22.984Z",
+    "lastReinforced": "2026-04-30T13:02:40.134Z",
+    "categories": [
+      "config"
+    ]
+  },
+  {
+    "id": "3ttm3591",
+    "text": "When a proposed rule shares the same trigger phrase (\"when a user dislikes a pattern\") and example as an existing rule, reject as duplicate — examples are a strong duplicate signal even when the wording differs.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:40:58.815Z",
+    "lastReinforced": "2026-04-30T13:02:40.179Z",
+    "categories": [
+      "architecture"
+    ]
+  },
+  {
+    "id": "hyufk0gw",
+    "text": "Structure change summaries with clear categorical headers (e.g., \"Removed:\", \"Kept:\") and bullet points explaining the rationale for each decision.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:44:19.059Z",
+    "lastReinforced": "2026-04-30T13:02:40.243Z",
+    "categories": [
+      "planning"
+    ]
+  },
+  {
+    "id": "qtin1lrg",
+    "text": "Never process or respond to binary-encoded or base64 blob content as if it were meaningful code or documentation; flag it as corrupted or irrelevant data and skip to actionable content.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 40,
+    "createdAt": "2026-04-22T13:38:29.393Z",
+    "lastReinforced": "2026-05-06T20:26:43.466Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "w6tg4myd",
+    "text": "Structure system audits with a clear executive summary listing all discovered systems upfront, followed by per-system details including location, key files, and status.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 38,
+    "createdAt": "2026-04-24T20:31:16.649Z",
+    "lastReinforced": "2026-05-06T20:26:43.607Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "pv5m7739",
+    "text": "Add session-scoped dedup by `(failure_type, context_hash)`; cap each unique signature to 1 emission per hour to stop floods of identical false-positives.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 32,
+    "createdAt": "2026-04-24T20:41:38.602Z",
+    "lastReinforced": "2026-05-06T20:26:43.905Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "93d5jorq",
+    "text": "Always use keyword-matched, pre-filtered rule injection over manual lesson injection to conserve tokens while maintaining effectiveness tracking.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T20:31:33.039Z",
+    "lastReinforced": "2026-05-06T20:26:43.661Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "u4ur0wiz",
+    "text": "Persist validator decisions to a keyed store `(hash(rule), hash(existing_rules_subset)) → decision`; on cache hit, skip the LLM call entirely.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T20:33:09.049Z",
+    "lastReinforced": "2026-05-06T20:26:43.708Z",
+    "categories": [
+      "planning"
+    ]
+  },
+  {
+    "id": "z7gdxr5u",
+    "text": "Add an abstractness filter to rule validation: reject proposals whose verbs are generic (\"document\", \"ensure\", \"always consider\") without a specific trigger object. Require a concrete noun (file type, tool, error signature) in every rule.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T20:35:14.102Z",
+    "lastReinforced": "2026-05-06T20:26:43.765Z",
+    "categories": [
+      "file-editing",
+      "debugging",
+      "architecture",
+      "security"
+    ]
+  },
+  {
+    "id": "g81brvmf",
+    "text": "Combine proposal-hash caching with full-corpus retrieval so repeat submissions fail fast and first-time submissions see all existing rules before a verdict.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T20:37:36.490Z",
+    "lastReinforced": "2026-05-06T20:26:43.813Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "5w1iwlts",
+    "text": "Rules about \"research/exploration output format\" must be diffed against eqdlcvnw, ajdxf1n7, hs1vq1ht, and at5v24te before proposal; if concept overlap ≥70%, merge into an existing rule instead of creating a new one.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T20:44:36.915Z",
+    "lastReinforced": "2026-05-06T20:26:43.999Z",
+    "categories": [
+      "git"
+    ]
+  },
+  {
+    "id": "y870flls",
+    "text": "Never inject content into every prompt that can be run manually on-demand; reserve automatic injection for high-value, keyword-matched guidance to conserve tokens.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T21:22:30.482Z",
+    "lastReinforced": "2026-05-06T20:26:44.047Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "iheizzk2",
+    "text": "Always initialize nested object keys before pushing to arrays to avoid runtime errors when building multi-level data structures.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 28,
+    "createdAt": "2026-04-30T13:02:10.273Z",
+    "lastReinforced": "2026-05-06T20:26:44.060Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "5upjley5",
+    "text": "When diagnosing event-driven system failures, compare working event flows against broken ones to isolate the specific configuration gap (e.g., missing subscription, wrong topic).",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-02T20:52:55.163Z",
+    "lastReinforced": "2026-05-04T16:56:07.204Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "e8wurgha",
+    "text": "Always document multi-step workflows with visual diagrams (e.g., mermaid flowcharts) showing each stage, transition trigger, and terminal states rather than prose-only descriptions.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-04-22T13:39:08.239Z",
+    "lastReinforced": "2026-05-04T16:56:07.951Z",
+    "categories": [
+      "git"
+    ]
+  },
+  {
+    "id": "izwujckd",
+    "text": "When comparing similar systems, explicitly state which does the job better and why, using concrete mechanisms (pre-filtering, keyword-matching, direct injection) rather than vague comparisons.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 19,
+    "createdAt": "2026-04-24T20:31:25.052Z",
+    "lastReinforced": "2026-05-06T20:26:43.654Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "sbv1wmf1",
+    "text": "Always replace hardcoded color values (e.g., `backgroundColor: 'white'`) with semantic theme tokens or variables to ensure dark mode compatibility throughout the codebase.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 17,
+    "createdAt": "2026-04-30T13:01:44.394Z",
+    "lastReinforced": "2026-05-06T20:26:44.054Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "l1on7ny3",
+    "text": "When optimizing N+1 query patterns, verify the replacement batch query produces identical results by comparing output at the same indices before removing the old implementation",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-02-17T19:26:32.494Z",
+    "lastReinforced": "2026-03-24T15:55:11.752Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "l4ilwark",
+    "text": "Always investigate data ordering differences when refactoring sequential database calls into batch queries, as bulk fetches may return results in a different order than individual calls",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 42,
+    "createdAt": "2026-02-17T19:26:27.112Z",
+    "lastReinforced": "2026-03-24T15:55:11.735Z",
+    "categories": [
+      "file-editing",
+      "debugging"
+    ]
+  },
+  {
+    "id": "gz9z6ntr",
+    "text": "Never use Bash array syntax (`arr=(...)`, `${#arr[@]}`) in Alpine/Docker containers that use `sh` instead of `bash`; use individual variables or POSIX-compatible iteration patterns instead.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 39,
+    "createdAt": "2026-02-17T22:35:48.032Z",
+    "lastReinforced": "2026-03-24T15:55:12.045Z",
+    "categories": [
+      "config"
+    ]
+  },
+  {
+    "id": "sql6ev4k",
+    "text": "Never attempt query optimizations based on assumptions about API capabilities; read the actual GraphQL schema and client code to confirm batch/bulk endpoints are available before refactoring.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 38,
+    "createdAt": "2026-02-17T22:36:06.128Z",
+    "lastReinforced": "2026-03-24T15:55:12.101Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "svuru1sb",
+    "text": "Never leave `.catch(() => {})` patterns scattered across calling code; instead create a wrapper helper that handles errors internally so callers remain clean",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 37,
+    "createdAt": "2026-02-17T22:36:34.342Z",
+    "lastReinforced": "2026-03-24T15:55:12.324Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "coo687bd",
+    "text": "Always trace the full data flow through resolvers, helpers, and database queries before modifying GraphQL endpoints, documenting the chain from schema definition to data transformation.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 36,
+    "createdAt": "2026-02-17T22:35:33.556Z",
+    "lastReinforced": "2026-03-24T15:55:11.988Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "062bm2lv",
+    "text": "Always trace mock paths to actual module locations in the project's dependency tree before writing test mocks, verifying the module exists at the exact path Jest will resolve.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 36,
+    "createdAt": "2026-02-17T22:38:04.415Z",
+    "lastReinforced": "2026-03-24T15:55:12.448Z",
+    "categories": [
+      "testing"
+    ]
+  },
+  {
+    "id": "voxfyhv3",
+    "text": "Always analyze event payloads to determine the most targeted invalidation scope rather than defaulting to broad cache invalidation like `invalidateAll()`",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 34,
+    "createdAt": "2026-02-17T22:36:38.247Z",
+    "lastReinforced": "2026-03-24T15:55:12.378Z",
+    "categories": [
+      "planning"
+    ]
+  },
+  {
+    "id": "h9mixths",
+    "text": "Before writing any test, explicitly confirm the test scope (unit/integration/e2e) and which code paths must be exercised. Design for the correct scope from the first draft.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 34,
+    "createdAt": "2026-02-17T22:37:18.455Z",
+    "lastReinforced": "2026-03-24T15:55:12.393Z",
+    "categories": [
+      "testing",
+      "architecture",
+      "planning"
+    ]
+  },
+  {
+    "id": "1gqawskf",
+    "text": "Always trace the full data flow through event publishers, subscribers, and handlers to identify configuration gaps before implementing cache invalidation or event-driven features",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 33,
+    "createdAt": "2026-02-17T22:36:29.988Z",
+    "lastReinforced": "2026-03-24T15:55:12.269Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "nahvodqf",
+    "text": "Always include concrete performance metrics (before/after timings, percentage improvements) when reporting optimization results to quantify the impact of changes like N+1 query elimination.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 31,
+    "createdAt": "2026-02-17T22:35:29.206Z",
+    "lastReinforced": "2026-03-24T15:55:11.933Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "y69pcrl0",
+    "text": "Always format logging standards with concrete code examples showing each log level (info, warn, error) and include required patterns like \"Reason:\" prefixes in a copyable code block.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-02-17T19:26:44.180Z",
+    "lastReinforced": "2026-03-24T15:55:11.821Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "ywikis02",
+    "text": "Always categorize discovered events or dependencies by their direct impact (e.g., \"directly modifies data\" vs \"indirectly affects cache\") to prioritize which ones require immediate handling.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-02-17T22:36:25.078Z",
+    "lastReinforced": "2026-03-24T15:55:12.213Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "5ub8b6ol",
+    "text": "Document environment-specific workarounds (shell compatibility, argument limits, container constraints) inline with the exact error and fix applied, so future sessions can avoid re-discovering them.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-02T20:52:31.086Z",
+    "lastReinforced": "2026-03-24T15:55:12.509Z",
+    "categories": [
+      "debugging",
+      "config"
+    ]
+  },
+  {
+    "id": "49zv3to3",
+    "text": "Always read and explore existing query patterns and client interfaces in the codebase before writing new data-fetching logic to avoid duplicating or missing available endpoints.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-02T20:56:13.267Z",
+    "lastReinforced": "2026-03-24T15:55:12.742Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "ejafp2ky",
+    "text": "Document the specific performance problem (e.g., \"N sequential HTTP calls\") before proposing a solution, so the optimization rationale is clear and verifiable.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:05:37.039Z",
+    "lastReinforced": "2026-03-24T15:55:12.852Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "untj37t2",
+    "text": "Document the full chain of event flow (publisher → topic → subscription → queue → consumer) when analyzing distributed event systems, rather than listing files and dependencies in isolation.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:06:40.445Z",
+    "lastReinforced": "2026-03-24T15:55:12.906Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "1vbpq0h7",
+    "text": "Never assume intermediate lookup results are valid; add defensive null checks after every `.find()`, property access, or chained operation before passing values to downstream functions.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:37:20.893Z",
+    "lastReinforced": "2026-03-24T15:55:13.016Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "dt4j5ixs",
+    "text": "When a container dependency issue is identified, fix it once (rebuild image, update volume, or document as known limitation) before continuing. Never proceed hoping the same error won't recur.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:39:37.478Z",
+    "lastReinforced": "2026-03-24T15:55:13.216Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "rwonncrz",
+    "text": "Never inline multi-line scripts with complex quoting into `docker exec`. Use `docker cp` to transfer a script file, then execute it inside the container.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:40:47.285Z",
+    "lastReinforced": "2026-03-24T15:55:13.286Z",
+    "categories": [
+      "file-editing",
+      "config"
+    ]
+  },
+  {
+    "id": "xp15ojl4",
+    "text": "Before parallelizing operations, create a dependency matrix (reads/writes per operation) first. If fields are independent, write the full `Promise.all` implementation in one pass — don't iterate.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:43:59.045Z",
+    "lastReinforced": "2026-03-24T15:55:13.466Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "zeng8hv9",
+    "text": "Never hardcode JWT tokens in commands — use environment variables or config files. Before running authenticated test requests, verify the token is still valid with a simple health check endpoint first.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-03-04T19:45:34.963Z",
+    "lastReinforced": "2026-03-24T15:55:13.496Z",
+    "categories": [
+      "testing",
+      "config",
+      "security"
+    ]
+  },
+  {
+    "id": "59xf1xd8",
+    "text": "When checking logs after an action, use time-bounded queries (`--since`, `--tail N`) to isolate new output. If logs show nothing new after one check, the action produced no log output — move on.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-04T19:47:49.343Z",
+    "lastReinforced": "2026-03-13T17:09:22.823Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "bjl4lco0",
+    "text": "Always verify enum value casing matches the database schema exactly (e.g., PascalCase vs UPPER_CASE) before sending data to APIs or databases, as mismatches cause silent failures or cryptic errors.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:00:06.185Z",
+    "lastReinforced": "2026-03-24T15:55:13.622Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "ugcp5q5x",
+    "text": "Prefer application-level verification (API calls, admin endpoints) over raw database queries — they handle connection strings, auth, and schema automatically.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-03-13T17:03:22.915Z",
+    "lastReinforced": "2026-03-24T15:55:13.814Z",
+    "categories": [
+      "security"
+    ]
+  },
+  {
+    "id": "44pmluua",
+    "text": "After applying a fix to a running service, confirm the fix is active by checking server restart timestamps against error timestamps before concluding the issue is resolved.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 15,
+    "createdAt": "2026-03-13T17:00:10.624Z",
+    "lastReinforced": "2026-03-24T15:55:13.636Z",
+    "categories": [
+      "debugging"
+    ]
+  },
+  {
+    "id": "jsonl-merge-01",
+    "text": "Never manually edit conflict markers in .ai-memory/session-end-events.jsonl. Git is configured with a jsonl-union merge driver that resolves conflicts automatically by combining both sides, deduplicating by (session_id, ts), and sorting by ts. If conflicts appear after a pull or rebase, it means the driver is not registered in this clone — run ./scripts/setup-merge-drivers.sh once, then redo the merge (or `git checkout --merge HEAD .ai-memory/session-end-events.jsonl`). Never edit the file by hand during a merge.",
+    "source": "team-policy",
+    "status": "active",
+    "reinforcementCount": 0,
+    "createdAt": "2026-04-22T14:05:00.000Z",
+    "lastReinforced": "2026-04-22T14:05:00.000Z",
+    "categories": [
+      "workflow",
+      "git"
+    ]
+  },
+  {
+    "id": "1j7mxu3j",
+    "text": "Hash each rule proposal (normalized lowercase, whitespace-stripped) and short-circuit validation if the hash has been seen in the last 30 days — log the dedup hit so pipeline noise is visible.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 16,
+    "createdAt": "2026-04-24T20:45:34.156Z",
+    "lastReinforced": "2026-04-30T13:02:40.283Z",
+    "categories": [
+      "deployment"
+    ]
+  },
+  {
+    "id": "8k0n9uq2",
+    "text": "Treat repeated same-type failures (≥2) as a signal to halt and re-read the task prompt; do not keep invoking mutating tools when the requested output is plain text.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 32,
+    "createdAt": "2026-04-24T20:33:50.494Z",
+    "lastReinforced": "2026-05-06T20:26:43.757Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "6rzrx8kh",
+    "text": "Always quantify token cost per prompt when evaluating whether a learning/memory subsystem earns its context budget, and flag systems whose overhead exceeds their active content.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T19:58:31.546Z",
+    "lastReinforced": "2026-05-15T23:47:54.020Z",
+    "categories": [
+      "security"
+    ]
+  },
+  {
+    "id": "04d3vrd5",
+    "text": "After classification, write the session id to `reflections-processed.jsonl` regardless of whether reflections were stored; the \"skipped\" branch must also persist, otherwise empty/template-only sessions get reprocessed indefinitely.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:14:06.382Z",
+    "lastReinforced": "2026-05-15T23:47:54.150Z",
+    "categories": [
+      "git"
+    ]
+  },
+  {
+    "id": "uek1bzcl",
+    "text": "Backtracking detector must require a `tool_use` of an editing tool in the turn — never trigger on text-only assistant messages.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:14:46.871Z",
+    "lastReinforced": "2026-05-15T23:47:54.174Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "64x929ld",
+    "text": "For `git reset --hard <ref>`, only flag as a failure when (a) `<ref>` is a different branch than current HEAD's upstream, or (b) HEAD has unpushed commits being discarded, or (c) the branch is protected; resetting to your own `origin/<same-branch>` is a benign sync.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:17:14.835Z",
+    "lastReinforced": "2026-05-15T23:47:54.300Z",
+    "categories": [
+      "git"
+    ]
+  },
+  {
+    "id": "6b8p1dqx",
+    "text": "Failure detectors must skip context where the matched span is inside a quoted prompt (e.g., text following \"You are a rule validator\" or \"Analyze these failures\"). Match on actual tool_use, not prose embedding the phrase.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:18:17.290Z",
+    "lastReinforced": "2026-05-15T23:47:54.317Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "6uc5isy0",
+    "text": "If the same file set is stashed twice in a session, stop and investigate the source of the churn (postinstall, hook, editor) before stashing a third time.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:19:02.595Z",
+    "lastReinforced": "2026-05-15T23:47:54.384Z",
+    "categories": [
+      "react",
+      "file-editing",
+      "debugging"
+    ]
+  },
+  {
+    "id": "bytj51zp",
+    "text": "De-duplicate failures by `tool_use_id` before reporting; one tool call should produce at most one failure entry regardless of how many heuristics it trips.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:19:57.236Z",
+    "lastReinforced": "2026-05-15T23:47:54.398Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "f68izag6",
+    "text": "Backtracking detection MUST extract filenames only from `Edit.file_path`, `Write.file_path`, or `NotebookEdit.notebook_path` fields. Ignore filenames inferred from commit messages, console output, or natural-language text.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:21:54.553Z",
+    "lastReinforced": "2026-05-15T23:47:54.411Z",
+    "categories": [
+      "git",
+      "file-editing"
+    ]
+  },
+  {
+    "id": "kad34nz9",
+    "text": "Validate extracted filenames before counting: must contain at least one `/` or `.<ext>` and length ≥ 3; reject single tokens like `a`, `in`, `is`, `on` as definitionally invalid paths.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:22:46.049Z",
+    "lastReinforced": "2026-05-15T23:47:54.421Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "boi772xc",
+    "text": "Backtracking detection must read `input.file_path` only — never tokenize `Bash.command`. Reject any candidate containing shell metacharacters (`>`, `<`, `&`, `|`, `;`, `$`) before counting.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 50,
+    "createdAt": "2026-05-06T20:23:39.854Z",
+    "lastReinforced": "2026-05-15T23:47:54.434Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "tfnhg6ek",
+    "text": "Always document the replacement mechanism (command or script) when removing a feature, so users retain manual access if needed.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 40,
+    "createdAt": "2026-05-06T19:42:11.975Z",
+    "lastReinforced": "2026-05-15T23:47:53.961Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "w2dwiewl",
+    "text": "When debugging, distinguish between the actual error type observed (e.g., `NaN`) and the error type expected from the code path (e.g., `TypeError`) to identify which branch is actually executing.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 38,
+    "createdAt": "2026-05-07T17:49:17.868Z",
+    "lastReinforced": "2026-05-15T23:47:54.447Z",
+    "categories": [
+      "git",
+      "debugging"
+    ]
+  },
+  {
+    "id": "bwouf6nc",
+    "text": "Always quantify the cost of existing systems (token usage, file reads, execution frequency) before proposing consolidation or removal to justify the change with measurable impact.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 34,
+    "createdAt": "2026-04-24T20:31:07.410Z",
+    "lastReinforced": "2026-05-15T23:47:53.870Z",
+    "categories": [
+      "file-editing",
+      "security"
+    ]
+  },
+  {
+    "id": "xqdr5dfh",
+    "text": "Reject proposed rules that broaden an existing rule's scope without adding a concrete new requirement; if the only delta is wording, update the existing rule instead of creating a new one.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 34,
+    "createdAt": "2026-04-24T20:43:05.388Z",
+    "lastReinforced": "2026-05-15T23:47:53.944Z",
+    "categories": [
+      "planning"
+    ]
+  },
+  {
+    "id": "6pbxmclo",
+    "text": "Every proposed rule must express exactly one trigger and one action; reject compound rules (`X and also Y`) and reject rules whose justification is a single incident with no reinforcement history.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 30,
+    "createdAt": "2026-04-24T20:39:41.465Z",
+    "lastReinforced": "2026-05-15T23:47:53.928Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "f8k9b2v1",
+    "text": "Always track multi-file refactors with a TodoWrite checklist that marks each step completed, so progress remains visible across agents.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-05-04T16:59:07.983Z",
+    "lastReinforced": "2026-05-15T23:47:54.089Z",
+    "categories": [
+      "file-editing"
+    ]
+  },
+  {
+    "id": "coen8tj2",
+    "text": "When the same `(detector, matched_span)` pair fires more than twice in a session, escalate to \"detector misconfiguration\" instead of recording further failures, and quarantine that detector for review.",
+    "source": "promoted-from-personal:reflection",
+    "status": "active",
+    "reinforcementCount": 20,
+    "createdAt": "2026-05-06T20:16:14.445Z",
+    "lastReinforced": "2026-05-08T17:03:37.919Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "qvhcpfe6",
+    "text": "Never leave inline hardcoded color values in components when implementing theming; always route all color decisions through the theme store and MUI palette.",
+    "source": "promoted-from-personal:insight-extraction",
+    "status": "active",
+    "reinforcementCount": 18,
+    "createdAt": "2026-05-08T17:00:28.127Z",
+    "lastReinforced": "2026-05-12T16:06:28.898Z",
+    "categories": [
+      "general"
+    ]
+  },
+  {
+    "id": "afa2qz1s",
+    "text": "When defaulting or normalizing a date-only value that becomes a stored timestamp, pin it to UTC noon (T12:00:00.000Z), not midnight — midnight renders as the previous day for users in negative-UTC offsets when the backend truncates dates in UTC.",
+    "source": "manual-elevation:lead-approved",
+    "status": "active",
+    "reinforcementCount": 1,
+    "createdAt": "2026-07-07T03:13:32.656Z",
+    "lastReinforced": "2026-07-07T03:13:32.656Z",
+    "categories": [
+      "debugging",
+      "file-editing"
+    ]
+  }
+]

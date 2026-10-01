@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lane - Ballast Lane Applications</title>
+    <meta name="description" content="Lane - A phase-based development methodology for AI-assisted software engineering by Ballast Lane Applications.">
+    <meta name="author" content="Ballast Lane Applications">
+    <meta name="keywords" content="AI, development, agents, BMAD, software engineering, automation">
+    <meta name="robots" content="index, follow">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Lane - Ballast Lane Applications">
+    <meta property="og:description" content="A phase-based development methodology for AI-assisted software engineering.">
+
+    <!-- Copyright -->
+    <meta name="copyright" content="Ballast Lane Applications">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #a371f7;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+            --accent-pink: #db61a2;
+            --accent-cyan: #39c5cf;
+            --accent-yellow: #e3b341;
+            --border-color: #30363d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 60px 0;
+            text-align: center;
+        }
+
+        .company-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 24px;
+            letter-spacing: 0.5px;
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--accent-blue);
+        }
+
+        /* Sections */
+        section {
+            padding: 80px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        section:last-child {
+            border-bottom: none;
+        }
+
+        h2 {
+            font-size: 2rem;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        /* Overview Section */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .overview-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .overview-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-blue);
+        }
+
+        .overview-card .icon {
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+
+        .overview-card h3 {
+            margin-bottom: 8px;
+        }
+
+        .overview-card p {
+            font-size: 0.9rem;
+        }
+
+        /* Workflow Section */
+        .workflow-container {
+            margin-top: 40px;
+        }
+
+        .workflow-phases {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .phase-card {
+            flex: 1;
+            min-width: 220px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            position: relative;
+        }
+
+        .phase-card.phase-1 { border-top: 3px solid var(--accent-blue); }
+        .phase-card.phase-2 { border-top: 3px solid var(--accent-green); }
+        .phase-card.phase-3 { border-top: 3px solid var(--accent-purple); }
+        .phase-card.phase-4 { border-top: 3px solid var(--accent-orange); }
+
+        .phase-number {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--bg-secondary);
+            padding: 0 8px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .phase-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .phase-agents {
+            margin-top: 16px;
+        }
+
+        .agent-tag {
+            display: inline-block;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            margin: 4px 4px 4px 0;
+        }
+
+        .arrow {
+            display: flex;
+            align-items: center;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .arrow {
+                display: none;
+            }
+        }
+
+        /* Agents Section */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 32px;
+        }
+
+        .agent-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .agent-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .agent-avatar.analyst { background: rgba(88, 166, 255, 0.2); }
+        .agent-avatar.product-owner { background: rgba(163, 113, 247, 0.2); }
+        .agent-avatar.architect { background: rgba(63, 185, 80, 0.2); }
+        .agent-avatar.designer { background: rgba(219, 97, 162, 0.2); }
+        .agent-avatar.tech-writer { background: rgba(210, 153, 34, 0.2); }
+        .agent-avatar.developer { background: rgba(57, 197, 207, 0.2); }
+        .agent-avatar.tester { background: rgba(227, 179, 65, 0.2); }
+        .agent-avatar.reviewer { background: rgba(248, 81, 73, 0.2); }
+        .agent-avatar.deployer { background: rgba(63, 185, 80, 0.2); }
+        .agent-avatar.documenter { background: rgba(139, 148, 158, 0.2); }
+
+        .agent-info h4 {
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .agent-info p {
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .mcp-tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .mcp-tag {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+        }
+
+        /* Commands Section */
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 32px;
+        }
+
+        .command-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .command-card code {
+            background: var(--bg-tertiary);
+            color: var(--accent-green);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+
+        .command-card p {
+            margin-top: 12px;
+        }
+
+        /* MCP Section */
+        .mcp-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .mcp-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .mcp-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mcp-card ul {
+            list-style: none;
+            margin-top: 12px;
+        }
+
+        .mcp-card li {
+            color: var(--text-secondary);
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .mcp-card li:last-child {
+            border-bottom: none;
+        }
+
+        /* Flow Diagram */
+        .flow-section {
+            text-align: center;
+        }
+
+        .flow-diagram {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            margin-top: 32px;
+            overflow-x: auto;
+        }
+
+        .flow-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .flow-box {
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px 24px;
+            min-width: 120px;
+        }
+
+        .flow-box.start {
+            border-color: var(--accent-green);
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .flow-box.decision {
+            border-color: var(--accent-orange);
+            background: rgba(210, 153, 34, 0.1);
+            transform: rotate(0deg);
+        }
+
+        .flow-box.phase {
+            border-color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .flow-box.end {
+            border-color: var(--accent-purple);
+            background: rgba(163, 113, 247, 0.1);
+        }
+
+        .flow-arrow {
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+        }
+
+        .flow-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 60px 0 40px;
+            text-align: center;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .footer-icon {
+            font-size: 2rem;
+        }
+
+        .footer-brand {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .footer-company {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .footer-company strong {
+            color: var(--text-primary);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .footer-links a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-purple);
+        }
+
+        .footer-divider {
+            color: var(--border-color);
+        }
+
+        .footer-inspired {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        .footer-legal {
+            padding-top: 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer-legal p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .footer-disclaimer {
+            font-size: 0.75rem !important;
+            opacity: 0.7;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .tagline {
+                font-size: 1rem;
+            }
+
+            nav ul {
+                gap: 16px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            section {
+                padding: 48px 0;
+            }
+
+            .workflow-phases {
+                flex-direction: column;
+            }
+
+            .phase-card {
+                min-width: 100%;
+            }
+        }
+
+        /* Quick Start */
+        .quickstart-box {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 32px;
+            margin-top: 32px;
+        }
+
+        .quickstart-box pre {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        .quickstart-box code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            color: var(--accent-green);
+            font-size: 0.9rem;
+        }
+
+        .comment {
+            color: var(--text-secondary);
+        }
+
+        /* Workflow Types */
+        .workflow-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .workflow-type {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .workflow-type.quick { border-left: 4px solid var(--accent-green); }
+        .workflow-type.full { border-left: 4px solid var(--accent-blue); }
+        .workflow-type.enterprise { border-left: 4px solid var(--accent-purple); }
+
+        .workflow-type h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .time-badge {
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            padding: 2px 10px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .workflow-type ul {
+            list-style: none;
+            margin-top: 12px;
+        }
+
+        .workflow-type li {
+            color: var(--text-secondary);
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .workflow-type li::before {
+            content: "→";
+            color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="company-badge">Ballast Lane Applications</div>
+            <div class="logo">🤖</div>
+            <h1>Lane</h1>
+            <p class="tagline">A phase-based development methodology for AI-assisted software engineering. Setup in 2 minutes with 4 pre-configured MCP services. Specialized agents guide you from analysis to delivery.</p>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="container">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#workflow">Workflow</a></li>
+                <li><a href="#agents">Agents</a></li>
+                <li><a href="#commands">Commands</a></li>
+                <li><a href="#mcp">MCP Services</a></li>
+                <li><a href="#quickstart">Quick Start</a></li>
+                <li><a href="workflow-diagram.html">Workflow Diagram</a></li>
+                <li><a href="orchestration-diagram.html">How It Works</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Overview Section -->
+    <section id="overview">
+        <div class="container">
+            <h2>Overview</h2>
+            <p>Lane is a structured development workflow that coordinates specialized AI agents through distinct phases. Inspired by BMAD methodology and Speckit's spec-driven approach.</p>
+
+            <div class="overview-grid">
+                <div class="overview-card">
+                    <div class="icon">📋</div>
+                    <h3>Phase-Based</h3>
+                    <p>Clear 4-phase structure: Analysis → Planning → Implementation → Delivery. Each phase has specialized agents.</p>
+                </div>
+                <div class="overview-card">
+                    <div class="icon">🎯</div>
+                    <h3>Specialized Agents</h3>
+                    <p>9 distinct agents with specific roles, from Analyst to Documenter. Each expert in their domain.</p>
+                </div>
+                <div class="overview-card">
+                    <div class="icon">🔄</div>
+                    <h3>Smart Routing</h3>
+                    <p>Automatic workflow selection based on task type: Quick Flow for bugs, Full BMAD for features, Enterprise for systems.</p>
+                </div>
+                <div class="overview-card">
+                    <div class="icon">🔌</div>
+                    <h3>MCP Pre-Configured</h3>
+                    <p>4 essential services ready out-of-the-box: Context7, Figma, Playwright, and Sequential Thinking. No setup required!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Section -->
+    <section id="workflow">
+        <div class="container">
+            <h2>Development Phases</h2>
+            <p>Work flows through four distinct phases, each with specialized agents and clear handoff protocols.</p>
+
+            <div class="workflow-container">
+                <div class="workflow-phases">
+                    <div class="phase-card phase-1">
+                        <span class="phase-number">Phase 1</span>
+                        <h3>🔍 Analysis</h3>
+                        <p>Research, discovery, and requirements gathering</p>
+                        <div class="phase-agents">
+                            <span class="agent-tag">Analyst</span>
+                            <span class="agent-tag">Product Owner</span>
+                        </div>
+                    </div>
+
+                    <div class="arrow">→</div>
+
+                    <div class="phase-card phase-2">
+                        <span class="phase-number">Phase 2</span>
+                        <h3>📐 Planning</h3>
+                        <p>Design, architecture, and specification</p>
+                        <div class="phase-agents">
+                            <span class="agent-tag">Architect</span>
+                            <span class="agent-tag">Designer</span>
+                            <span class="agent-tag">Tech Writer</span>
+                        </div>
+                    </div>
+
+                    <div class="arrow">→</div>
+
+                    <div class="phase-card phase-3">
+                        <span class="phase-number">Phase 3</span>
+                        <h3>💻 Implementation</h3>
+                        <p>Code development, testing, and review</p>
+                        <div class="phase-agents">
+                            <span class="agent-tag">Developer</span>
+                            <span class="agent-tag">Tester</span>
+                            <span class="agent-tag">Reviewer</span>
+                        </div>
+                    </div>
+
+                    <div class="arrow">→</div>
+
+                    <div class="phase-card phase-4">
+                        <span class="phase-number">Phase 4</span>
+                        <h3>🚀 Delivery</h3>
+                        <p>Deployment and documentation</p>
+                        <div class="phase-agents">
+                            <span class="agent-tag">Deployer</span>
+                            <span class="agent-tag">Documenter</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 48px;">Workflow Types</h3>
+            <div class="workflow-types">
+                <div class="workflow-type quick">
+                    <h3>⚡ Quick Flow <span class="time-badge">~5 min</span></h3>
+                    <p>For bug fixes and small changes</p>
+                    <ul>
+                        <li>Developer fixes the issue</li>
+                        <li>Tester validates the fix</li>
+                        <li>Deployer ships the hotfix</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-type full">
+                    <h3>🔄 Full BMAD <span class="time-badge">~15 min</span></h3>
+                    <p>For features and components</p>
+                    <ul>
+                        <li>Architect designs the solution</li>
+                        <li>Designer creates the UI</li>
+                        <li>Developer implements</li>
+                        <li>Full testing and delivery</li>
+                    </ul>
+                </div>
+
+                <div class="workflow-type enterprise">
+                    <h3>🏢 Enterprise <span class="time-badge">~30 min</span></h3>
+                    <p>For systems and architecture</p>
+                    <ul>
+                        <li>Full analysis phase</li>
+                        <li>Comprehensive planning</li>
+                        <li>Iterative implementation</li>
+                        <li>Complete documentation</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Agents Section -->
+    <section id="agents">
+        <div class="container">
+            <h2>Specialized Agents</h2>
+            <p>Each agent is an expert in their domain with specific capabilities and MCP service access.</p>
+
+            <div class="agents-grid">
+                <div class="agent-card">
+                    <div class="agent-avatar analyst">🔍</div>
+                    <div class="agent-info">
+                        <h4>Analyst</h4>
+                        <p>Research and technical analysis. Explores problem space and identifies options.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                            <span class="mcp-tag">sequential-thinking</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar product-owner">📊</div>
+                    <div class="agent-info">
+                        <h4>Product Owner</h4>
+                        <p>Defines features, priorities, and acceptance criteria.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar architect">🏗️</div>
+                    <div class="agent-info">
+                        <h4>Architect</h4>
+                        <p>Designs system architecture, APIs, and data models.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                            <span class="mcp-tag">sequential-thinking</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar designer">🎨</div>
+                    <div class="agent-info">
+                        <h4>Designer</h4>
+                        <p>Creates UI/UX designs and component libraries.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">figma</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar tech-writer">📝</div>
+                    <div class="agent-info">
+                        <h4>Tech Writer</h4>
+                        <p>Documents specifications, APIs, and guides.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar developer">💻</div>
+                    <div class="agent-info">
+                        <h4>Developer</h4>
+                        <p>Implements code with clean, tested, maintainable standards.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                            <span class="mcp-tag">figma</span>
+                            <span class="mcp-tag">playwright</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar tester">🧪</div>
+                    <div class="agent-info">
+                        <h4>Tester</h4>
+                        <p>Validates functionality through comprehensive testing.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                            <span class="mcp-tag">playwright</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar reviewer">👁️</div>
+                    <div class="agent-info">
+                        <h4>Reviewer</h4>
+                        <p>Reviews code quality, security, and best practices.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar deployer">🚀</div>
+                    <div class="agent-info">
+                        <h4>Deployer</h4>
+                        <p>Manages deployments, CI/CD, and environments.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="agent-card">
+                    <div class="agent-avatar documenter">📚</div>
+                    <div class="agent-info">
+                        <h4>Documenter</h4>
+                        <p>Finalizes release notes, changelog, and documentation.</p>
+                        <div class="mcp-tags">
+                            <span class="mcp-tag">context7</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commands Section -->
+    <section id="commands">
+        <div class="container">
+            <h2>Commands</h2>
+            <p>Control the workflow with simple slash commands.</p>
+
+            <div class="commands-grid">
+                <div class="command-card">
+                    <code>/work-ticket "task"</code>
+                    <p>Smart routing - automatically selects the best workflow based on your task description.</p>
+                </div>
+
+                <div class="command-card">
+                    <code>/agent [name]</code>
+                    <p>Activate a specific agent. Example: <code>/agent developer</code></p>
+                </div>
+
+                <div class="command-card">
+                    <code>/phase [1-4]</code>
+                    <p>Navigate to a specific phase. Example: <code>/phase 2</code> for Planning.</p>
+                </div>
+
+                <div class="command-card">
+                    <code>/progress</code>
+                    <p>View current workflow status, completed work, and next steps.</p>
+                </div>
+
+                <div class="command-card">
+                    <code>/analyze "task"</code>
+                    <p>Start with Analysis phase - research and requirements gathering.</p>
+                </div>
+
+                <div class="command-card">
+                    <code>/plan "task"</code>
+                    <p>Start with Planning phase - architecture and design.</p>
+                </div>
+
+                <div class="command-card">
+                    <code>/implement "task"</code>
+                    <p>Start with Implementation phase - code and testing.</p>
+                </div>
+
+                <div class="command-card">
+                    <code>/deliver "task"</code>
+                    <p>Start with Delivery phase - deployment and documentation.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MCP Services Section -->
+    <section id="mcp">
+        <div class="container">
+            <h2>Pre-Configured MCP Services</h2>
+            <p>Four powerful Model Context Protocol services ready to use out-of-the-box. No additional configuration required!</p>
+
+            <div class="mcp-grid">
+                <div class="mcp-card">
+                    <h3>📚 Context7</h3>
+                    <p>Up-to-date documentation and code examples</p>
+                    <ul>
+                        <li>Latest framework docs (React, Vue, Next.js, etc.)</li>
+                        <li>API references and guides</li>
+                        <li>Best practices and patterns</li>
+                        <li>Real-world code examples</li>
+                    </ul>
+                </div>
+
+                <div class="mcp-card">
+                    <h3>🎨 Figma</h3>
+                    <p>Design integration via SSE (Server-Sent Events)</p>
+                    <ul>
+                        <li>Review designs in real-time</li>
+                        <li>Extract component specifications</li>
+                        <li>Generate code from designs</li>
+                        <li>Design token extraction</li>
+                    </ul>
+                </div>
+
+                <div class="mcp-card">
+                    <h3>🎭 Playwright</h3>
+                    <p>Browser automation and testing</p>
+                    <ul>
+                        <li>End-to-end testing</li>
+                        <li>Browser automation workflows</li>
+                        <li>Screenshots and snapshots</li>
+                        <li>Cross-browser testing</li>
+                    </ul>
+                </div>
+
+                <div class="mcp-card">
+                    <h3>🧠 Sequential Thinking</h3>
+                    <p>Advanced reasoning and problem-solving</p>
+                    <ul>
+                        <li>Break down complex problems</li>
+                        <li>Multi-step analysis</li>
+                        <li>Iterative planning</li>
+                        <li>Hypothesis generation and verification</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="quickstart-box" style="margin-top: 40px;">
+                <h3>MCP Configuration</h3>
+                <p>All services are pre-configured in <code>.mcp.json</code>. Just clone and run!</p>
+                <pre><code>{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
+    },
+    "figma": {
+      "type": "sse",
+      "url": "http://127.0.0.1:3845/sse"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": "6000"
+      }
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
+}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section id="quickstart">
+        <div class="container">
+            <h2>Quick Start</h2>
+            <p>Get started with Lane in under 2 minutes. All MCP services are pre-configured!</p>
+
+            <div class="quickstart-box">
+                <h3>Setup in 3 Steps</h3>
+                <pre><code><span class="comment"># 1. Clone repository</span>
+git clone https://github.com/mazaia/lane.git
+cd lane
+
+<span class="comment"># 2. Run setup (creates workspace structure)</span>
+./scripts/setup
+
+<span class="comment"># 3. Start working - MCP services are ready!</span>
+/work-ticket "Your task here"</code></pre>
+            </div>
+
+            <div class="quickstart-box" style="margin-top: 32px;">
+                <h3>Example Workflows</h3>
+                <pre><code><span class="comment"># Fix a bug (Quick Flow ~5 min)</span>
+/work-ticket "Fix login redirect issue"
+
+<span class="comment"># Build a feature (Full BMAD ~15 min)</span>
+/work-ticket "Add dark mode toggle"
+
+<span class="comment"># Design a system (Enterprise ~30 min)</span>
+/work-ticket "Build payment processing system"
+
+<span class="comment"># Or jump directly to a phase</span>
+/phase 3
+/agent developer
+
+<span class="comment"># Check progress anytime</span>
+/progress
+
+<span class="comment"># View MCP configuration details</span>
+./scripts/setup --info</code></pre>
+            </div>
+
+            <div class="flow-section" style="margin-top: 48px;">
+                <h3>How It Works</h3>
+                <div class="flow-diagram">
+                    <div class="flow-row">
+                        <div class="flow-box start">
+                            <strong>Task</strong>
+                            <div class="flow-label">User input</div>
+                        </div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-box decision">
+                            <strong>Router</strong>
+                            <div class="flow-label">Select workflow</div>
+                        </div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-box phase">
+                            <strong>Phases</strong>
+                            <div class="flow-label">1 → 2 → 3 → 4</div>
+                        </div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-box end">
+                            <strong>Delivery</strong>
+                            <div class="flow-label">Complete</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-logo">
+                <span class="footer-icon">🤖</span>
+                <span class="footer-brand">Lane</span>
+            </div>
+            <p class="footer-inspired">Phase-based development inspired by BMAD Methodology</p>
+            <div class="footer-legal">
+                <p class="footer-disclaimer">Built with Claude Code by Anthropic</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

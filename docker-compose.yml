@@ -1,0 +1,53 @@
+services:
+  # Qdrant - Vector database for session embeddings, reflections, and rules
+  # Powers: semantic search, failure reflection storage, rule vector indexing
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant-lane
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_lane_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - lane
+
+volumes:
+  qdrant_lane_data:
+    name: qdrant_lane_data
+
+networks:
+  lane:
+    name: lane
+    driver: bridge
+
+# =================================================================
+# Lane Self-Improvement Infrastructure
+# =================================================================
+#
+# Quick start:
+#   docker compose up -d          # Start Qdrant
+#   docker compose ps             # Check status
+#   docker compose logs -f        # View logs
+#
+# After starting:
+#   npm run session:embed         # Embed session logs for semantic search
+#   npm run self:maintenance      # Run full learning cycle
+#   npm run self:dashboard        # Generate interactive dashboard
+#
+# Backup:
+#   npm run session:backup        # Backup Qdrant data
+#
+# Collections created automatically:
+#   session-embeddings   - Session chunks (384-dim, bge-small-en-v1.5)
+#   reflections          - Failure analysis reflections
+#   rules                - Vector-indexed learned rules
+#
+# NOTE: Qdrant is OPTIONAL. Team rules (rules-shared.json) work
+# without it. Qdrant adds semantic search + auto rule extraction.

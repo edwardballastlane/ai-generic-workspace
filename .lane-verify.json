@@ -1,0 +1,18 @@
+{
+  "commands": [
+    {
+      "name": "tests",
+      "run": "npm test"
+    },
+    {
+      "name": "ratchets",
+      "run": "npm run ratchet:all"
+    }
+  ],
+  "whenPathsChanged": [
+    "scripts/",
+    "tests/",
+    "package.json"
+  ],
+  "timeoutMs": 300000
+}

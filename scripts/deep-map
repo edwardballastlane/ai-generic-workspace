@@ -1,0 +1,581 @@
+#!/usr/bin/env bash
+
+# deep-map - Deep codebase analysis for a project
+# Usage: ./scripts/deep-map <project-name>
+#
+# Produces a structured deep map covering structure, dependencies,
+# hot files, API surface, test coverage, and architecture patterns.
+# Output: .ai-contexts/<project>-deep-map.md + stdout summary
+
+# Not using set -e because grep returns 1 when no matches found
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+DIM='\033[2m'
+BOLD='\033[1m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# Help
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo "Usage: ./scripts/deep-map <project-name>"
+    echo ""
+    echo "Performs deep codebase analysis beyond generate-context."
+    echo "Covers structure, dependencies, hot files, API surface,"
+    echo "test coverage, and architecture patterns."
+    echo ""
+    echo "Output: .ai-contexts/<project>-deep-map.md"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/deep-map my-backend"
+    echo "  ./scripts/deep-map my-analytics"
+    exit 0
+fi
+
+PROJECT="$1"
+PROJECT_PATH="$ROOT_DIR/agent/_projects/$PROJECT"
+CONTEXTS_DIR="$ROOT_DIR/.ai-contexts"
+OUTPUT_FILE="$CONTEXTS_DIR/$PROJECT-deep-map.md"
+
+# Special case: workspace itself
+if [ "$PROJECT" = "ai-dev-agent" ]; then
+    PROJECT_PATH="$ROOT_DIR"
+fi
+
+# Resolve symlinks
+if [ -L "$PROJECT_PATH" ]; then
+    PROJECT_PATH="$(readlink -f "$PROJECT_PATH")"
+fi
+
+# Validate project exists
+if [ ! -d "$PROJECT_PATH" ]; then
+    echo -e "${RED}Error: Project not found at $PROJECT_PATH${NC}"
+    echo "Run ./scripts/list-projects to see available projects"
+    exit 1
+fi
+
+# Ensure output directory exists
+mkdir -p "$CONTEXTS_DIR"
+
+echo -e "${BLUE}${BOLD}Deep Map: ${CYAN}$PROJECT${NC}"
+echo -e "${DIM}Analyzing $PROJECT_PATH${NC}"
+echo ""
+
+# ============================================
+# 1. STRUCTURE ANALYSIS
+# ============================================
+
+echo -e "${MAGENTA}[1/6]${NC} Structure analysis..."
+
+# Directory tree (depth 3)
+TREE_OUTPUT=$(cd "$PROJECT_PATH" && find . -maxdepth 3 -type d \
+    -not -path '*/node_modules*' \
+    -not -path '*/.git*' \
+    -not -path '*/dist*' \
+    -not -path '*/build*' \
+    -not -path '*/.next*' \
+    -not -path '*/coverage*' \
+    -not -path '*/__pycache__*' \
+    -not -path '*/.cache*' \
+    -not -path '*/.turbo*' \
+    -not -path '*/.tmp*' \
+    2>/dev/null | sort)
+
+# Single find pass: collect all files into a temp list
+ALL_FILES_LIST=$(mktemp)
+find "$PROJECT_PATH" -type f \
+    -not -path '*/node_modules/*' \
+    -not -path '*/.git/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/build/*' \
+    -not -path '*/.next/*' \
+    -not -path '*/coverage/*' \
+    -not -path '*/__pycache__/*' \
+    -not -path '*/.cache/*' \
+    -not -path '*/.turbo/*' \
+    -not -path '*/.tmp/*' \
+    2>/dev/null > "$ALL_FILES_LIST"
+
+TOTAL_FILES=$(wc -l < "$ALL_FILES_LIST" | tr -d ' ')
+
+# Count files per extension from the cached list
+EXT_TABLE=$(sed 's/.*\.//' "$ALL_FILES_LIST" | grep -v '/' | sort | uniq -c | sort -rn | head -30)
+
+# Top-level directory count
+TOP_DIRS=$(find "$PROJECT_PATH" -maxdepth 1 -type d 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+
+# Total LOC: count lines of source files only (fast: single xargs call)
+TOTAL_LOC=$(grep -E '\.(ts|tsx|js|jsx|py|go|rs|java|kt|cs|rb|php)$' "$ALL_FILES_LIST" | head -1000 | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+TOTAL_LOC=${TOTAL_LOC:-0}
+
+# ============================================
+# 2. DEPENDENCY ANALYSIS
+# ============================================
+
+echo -e "${MAGENTA}[2/6]${NC} Dependency analysis..."
+
+DEPS_OUTPUT=""
+DEV_DEPS_OUTPUT=""
+LOCK_FILE="none"
+DETECTED_FRAMEWORKS=""
+
+# Check lock files
+if [ -f "$PROJECT_PATH/package-lock.json" ]; then
+    LOCK_FILE="package-lock.json (npm)"
+elif [ -f "$PROJECT_PATH/yarn.lock" ]; then
+    LOCK_FILE="yarn.lock (yarn)"
+elif [ -f "$PROJECT_PATH/pnpm-lock.yaml" ]; then
+    LOCK_FILE="pnpm-lock.yaml (pnpm)"
+elif [ -f "$PROJECT_PATH/bun.lockb" ]; then
+    LOCK_FILE="bun.lockb (bun)"
+fi
+
+# Parse package.json if it exists
+if [ -f "$PROJECT_PATH/package.json" ]; then
+    PKG="$PROJECT_PATH/package.json"
+
+    # Extract dependencies (key names only, up to 30)
+    DEPS_OUTPUT=$(sed -n '/"dependencies"/,/}/p' "$PKG" 2>/dev/null | grep '"' | grep -v 'dependencies' | sed 's/.*"\([^"]*\)".*/\1/' | head -30)
+    DEV_DEPS_OUTPUT=$(sed -n '/"devDependencies"/,/}/p' "$PKG" 2>/dev/null | grep '"' | grep -v 'devDependencies' | sed 's/.*"\([^"]*\)".*/\1/' | head -30)
+
+    # Detect frameworks
+    has_dep() { grep -q "\"$1\"" "$PKG" 2>/dev/null; }
+
+    has_dep "@nestjs/core" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS NestJS"
+    has_dep "express" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Express"
+    has_dep "fastify" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Fastify"
+    has_dep "next" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Next.js"
+    has_dep "react" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS React"
+    has_dep "vue" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Vue"
+    has_dep "@angular/core" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Angular"
+    has_dep "svelte" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Svelte"
+    has_dep "hono" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Hono"
+    has_dep "react-native" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS React-Native"
+    has_dep "expo" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Expo"
+    has_dep "typeorm" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS TypeORM"
+    has_dep "prisma" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Prisma"
+    has_dep "@mikro-orm/core" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS MikroORM"
+    has_dep "sequelize" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Sequelize"
+    has_dep "mongoose" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Mongoose"
+    has_dep "graphql" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS GraphQL"
+    has_dep "@apollo/server" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Apollo"
+    has_dep "bullmq" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS BullMQ"
+    has_dep "socket.io" && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Socket.IO"
+fi
+
+# Python dependencies
+if [ -f "$PROJECT_PATH/requirements.txt" ]; then
+    PY_DEPS=$(grep -v '^#' "$PROJECT_PATH/requirements.txt" 2>/dev/null | grep -v '^$' | sed 's/[>=<].*//' | head -30)
+    [ -n "$PY_DEPS" ] && DEPS_OUTPUT="$PY_DEPS"
+    grep -qi "django" "$PROJECT_PATH/requirements.txt" 2>/dev/null && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Django"
+    grep -qi "flask" "$PROJECT_PATH/requirements.txt" 2>/dev/null && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Flask"
+    grep -qi "fastapi" "$PROJECT_PATH/requirements.txt" 2>/dev/null && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS FastAPI"
+fi
+
+# Go modules
+if [ -f "$PROJECT_PATH/go.mod" ]; then
+    GO_DEPS=$(grep -E '^\t' "$PROJECT_PATH/go.mod" 2>/dev/null | awk '{print $1}' | head -30)
+    [ -n "$GO_DEPS" ] && DEPS_OUTPUT="$GO_DEPS"
+    grep -q "gin-gonic" "$PROJECT_PATH/go.mod" 2>/dev/null && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Gin"
+    grep -q "labstack/echo" "$PROJECT_PATH/go.mod" 2>/dev/null && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Echo"
+    grep -q "gofiber" "$PROJECT_PATH/go.mod" 2>/dev/null && DETECTED_FRAMEWORKS="$DETECTED_FRAMEWORKS Fiber"
+fi
+
+DETECTED_FRAMEWORKS=$(echo "$DETECTED_FRAMEWORKS" | xargs)
+
+# ============================================
+# 3. HOT FILES (most frequently changed)
+# ============================================
+
+echo -e "${MAGENTA}[3/6]${NC} Hot files analysis..."
+
+HOT_FILES=""
+IS_GIT_REPO=false
+
+if [ -d "$PROJECT_PATH/.git" ]; then
+    IS_GIT_REPO=true
+    HOT_FILES=$(cd "$PROJECT_PATH" && git log --format='' --name-only -100 2>/dev/null | \
+        grep -v '^$' | \
+        sort | uniq -c | sort -rn | head -10 | \
+        awk '{printf "  %3d  %s\n", $1, $2}')
+fi
+
+# ============================================
+# 4. API SURFACE
+# ============================================
+
+echo -e "${MAGENTA}[4/6]${NC} API surface scan..."
+
+# Build list of source files (ts/js only, no tests) from cached list
+SRC_FILES_LIST=$(mktemp)
+grep -E '\.(ts|js)$' "$ALL_FILES_LIST" | grep -v '\.spec\.' | grep -v '\.test\.' | grep -v '\.d\.ts$' > "$SRC_FILES_LIST"
+
+REST_ENDPOINTS=""
+GRAPHQL_RESOLVERS=""
+REST_COUNT=0
+GRAPHQL_COUNT=0
+
+# Single grep pass for all API patterns
+if [ -s "$SRC_FILES_LIST" ]; then
+    API_GREP_OUTPUT=$(xargs grep -hn '@Get\|@Post\|@Put\|@Patch\|@Delete\|@Query\|@Mutation\|@Subscription' < "$SRC_FILES_LIST" 2>/dev/null | head -200)
+
+    # REST: NestJS decorators
+    NEST_REST=$(echo "$API_GREP_OUTPUT" | grep -oP '@(Get|Post|Put|Patch|Delete)\([^)]*\)' | \
+        sed 's/@\(Get\|Post\|Put\|Patch\|Delete\)(\(.*\))/\1 \2/' | \
+        sed "s/'//g; s/\"//g" | head -50)
+
+    # REST: Express/Fastify/Hono style
+    EXPRESS_REST=$(xargs grep -hn '\(router\|app\|server\)\.\(get\|post\|put\|patch\|delete\)(' < "$SRC_FILES_LIST" 2>/dev/null | \
+        head -100 | \
+        sed 's/.*\.\(get\|post\|put\|patch\|delete\)(\([^,)]*\).*/\1 \2/' | \
+        sed "s/'//g; s/\"//g" | head -50)
+
+    REST_ENDPOINTS=$(printf "%s\n%s" "$NEST_REST" "$EXPRESS_REST" | grep -v '^$' | sort -u)
+    if [ -n "$REST_ENDPOINTS" ]; then
+        REST_COUNT=$(echo "$REST_ENDPOINTS" | wc -l | tr -d ' ')
+    fi
+
+    # GraphQL
+    GRAPHQL_RESOLVERS=$(echo "$API_GREP_OUTPUT" | grep -oP '@(Query|Mutation|Subscription)\([^)]*\)' | \
+        sed 's/@\(Query\|Mutation\|Subscription\)(\(.*\))/\1 \2/' | \
+        sed "s/'//g; s/\"//g" | head -50)
+    if [ -n "$GRAPHQL_RESOLVERS" ]; then
+        GRAPHQL_COUNT=$(echo "$GRAPHQL_RESOLVERS" | wc -l | tr -d ' ')
+    fi
+fi
+
+TOTAL_ENDPOINTS=$((REST_COUNT + GRAPHQL_COUNT))
+
+# ============================================
+# 5. TEST COVERAGE
+# ============================================
+
+echo -e "${MAGENTA}[5/6]${NC} Test coverage scan..."
+
+# Count from cached file list
+TEST_FILES=$(grep -cE '\.(spec|test)\.(ts|js|tsx|jsx)$' "$ALL_FILES_LIST" 2>/dev/null || echo "0")
+
+SOURCE_FILES=$(grep -E '\.(ts|js|tsx|jsx)$' "$ALL_FILES_LIST" | grep -vcE '\.(spec|test|d)\.' 2>/dev/null || echo "0")
+
+# Test ratio
+if [ "$SOURCE_FILES" -gt 0 ]; then
+    TEST_RATIO_PCT=$(( (TEST_FILES * 100) / SOURCE_FILES ))
+else
+    TEST_RATIO_PCT=0
+fi
+
+# Test config detection
+TEST_CONFIG="none"
+if [ -f "$PROJECT_PATH/jest.config.js" ] || [ -f "$PROJECT_PATH/jest.config.ts" ] || [ -f "$PROJECT_PATH/jest.config.json" ]; then
+    TEST_CONFIG="jest"
+elif [ -f "$PROJECT_PATH/vitest.config.ts" ] || [ -f "$PROJECT_PATH/vitest.config.js" ]; then
+    TEST_CONFIG="vitest"
+elif [ -f "$PROJECT_PATH/karma.conf.js" ]; then
+    TEST_CONFIG="karma"
+elif [ -f "$PROJECT_PATH/pytest.ini" ]; then
+    TEST_CONFIG="pytest"
+elif [ -f "$PROJECT_PATH/pyproject.toml" ] && grep -q "pytest" "$PROJECT_PATH/pyproject.toml" 2>/dev/null; then
+    TEST_CONFIG="pytest"
+fi
+
+# Check package.json for test runner hints
+if [ "$TEST_CONFIG" = "none" ] && [ -f "$PROJECT_PATH/package.json" ]; then
+    grep -q '"jest"' "$PROJECT_PATH/package.json" 2>/dev/null && TEST_CONFIG="jest (in package.json)"
+    grep -q '"vitest"' "$PROJECT_PATH/package.json" 2>/dev/null && TEST_CONFIG="vitest (in devDeps)"
+fi
+
+# E2E test detection
+E2E_FILES=0
+for edir in "$PROJECT_PATH/test" "$PROJECT_PATH/e2e"; do
+    if [ -d "$edir" ]; then
+        count=$(find "$edir" -type f \( -name '*.e2e-spec.ts' -o -name '*.e2e.ts' -o -name '*.e2e.js' \) 2>/dev/null | wc -l | tr -d ' ')
+        E2E_FILES=$((E2E_FILES + count))
+    fi
+done
+
+# ============================================
+# 6. ARCHITECTURE PATTERNS
+# ============================================
+
+echo -e "${MAGENTA}[6/6]${NC} Architecture patterns..."
+
+# Collect all directory basenames (depth 4) in a single find pass
+ALL_DIRS_LIST=$(find "$PROJECT_PATH" -maxdepth 4 -type d \
+    -not -path '*/node_modules/*' \
+    -not -path '*/.git/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/build/*' \
+    -not -path '*/.next/*' \
+    -not -path '*/.tmp/*' \
+    2>/dev/null | xargs -I{} basename {} 2>/dev/null | sort -u)
+
+ARCH_PATTERNS=""
+for pattern_dir in controllers services modules repositories entities domain infrastructure application interfaces middleware guards pipes interceptors decorators dtos schemas resolvers subscribers listeners events commands queries handlers sagas providers factories strategies adapters gateways models config common shared core lib utils helpers; do
+    if echo "$ALL_DIRS_LIST" | grep -qx "$pattern_dir"; then
+        ARCH_PATTERNS="$ARCH_PATTERNS $pattern_dir"
+    fi
+done
+ARCH_PATTERNS=$(echo "$ARCH_PATTERNS" | xargs)
+
+# DI container detection
+DI_CONTAINER="none"
+if grep -qE '\.module\.ts$' "$ALL_FILES_LIST" 2>/dev/null; then
+    DI_CONTAINER="NestJS modules"
+elif [ -f "$PROJECT_PATH/package.json" ] && grep -q '"inversify"' "$PROJECT_PATH/package.json" 2>/dev/null; then
+    DI_CONTAINER="inversify"
+elif [ -f "$PROJECT_PATH/package.json" ] && grep -q '"tsyringe"' "$PROJECT_PATH/package.json" 2>/dev/null; then
+    DI_CONTAINER="tsyringe"
+elif [ -f "$PROJECT_PATH/package.json" ] && grep -q '"awilix"' "$PROJECT_PATH/package.json" 2>/dev/null; then
+    DI_CONTAINER="awilix"
+fi
+
+# Middleware detection
+MIDDLEWARE_FOUND=""
+if grep -qE '\.middleware\.ts$' "$ALL_FILES_LIST" 2>/dev/null; then
+    MIDDLEWARE_FOUND="NestJS middleware files"
+elif [ -s "$SRC_FILES_LIST" ] && xargs grep -l 'app\.use(' < "$SRC_FILES_LIST" 2>/dev/null | head -1 | grep -q .; then
+    MIDDLEWARE_FOUND="Express-style app.use() chain"
+fi
+
+# Architecture style inference
+ARCH_STYLE="unknown"
+if echo "$ARCH_PATTERNS" | grep -qw "modules" && echo "$ARCH_PATTERNS" | grep -qw "controllers" && echo "$ARCH_PATTERNS" | grep -qw "services"; then
+    ARCH_STYLE="Modular (NestJS-style)"
+elif echo "$ARCH_PATTERNS" | grep -qw "domain" && echo "$ARCH_PATTERNS" | grep -qw "infrastructure"; then
+    ARCH_STYLE="Domain-Driven Design (DDD)"
+elif echo "$ARCH_PATTERNS" | grep -qw "controllers" && echo "$ARCH_PATTERNS" | grep -qw "models"; then
+    ARCH_STYLE="MVC"
+elif echo "$ARCH_PATTERNS" | grep -qw "handlers"; then
+    ARCH_STYLE="Route-handler"
+fi
+
+# CQRS detection
+CQRS_DETECTED=false
+if echo "$ARCH_PATTERNS" | grep -qw "commands" && echo "$ARCH_PATTERNS" | grep -qw "queries"; then
+    CQRS_DETECTED=true
+fi
+
+# Event-driven detection
+EVENTS_DETECTED=false
+if echo "$ARCH_PATTERNS" | grep -qw "events" || echo "$ARCH_PATTERNS" | grep -qw "sagas"; then
+    EVENTS_DETECTED=true
+fi
+
+# Clean up temp files
+rm -f "$ALL_FILES_LIST" "$SRC_FILES_LIST"
+
+# ============================================
+# GENERATE OUTPUT
+# ============================================
+
+TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+{
+cat <<HEADER
+# Deep Map: $PROJECT
+
+> Generated: $TIMESTAMP
+> Path: $PROJECT_PATH
+
+---
+
+## 1. Structure Analysis
+
+**Summary:** $TOTAL_FILES files across $TOP_DIRS top-level directories, ~$TOTAL_LOC lines of code
+
+### Directory Tree (depth 3)
+
+\`\`\`
+HEADER
+
+echo "$TREE_OUTPUT"
+
+cat <<'FENCE'
+```
+FENCE
+
+echo ""
+echo "### File Counts by Extension"
+echo ""
+echo "| Extension | Count |"
+echo "|-----------|-------|"
+echo "$EXT_TABLE" | while read -r count ext; do
+    [ -n "$ext" ] && echo "| .$ext | $count |"
+done
+
+cat <<DEPS
+
+---
+
+## 2. Dependency Analysis
+
+**Lock file:** $LOCK_FILE
+**Frameworks detected:** ${DETECTED_FRAMEWORKS:-none}
+
+### Dependencies
+
+\`\`\`
+DEPS
+
+if [ -n "$DEPS_OUTPUT" ]; then
+    echo "$DEPS_OUTPUT"
+else
+    echo "(none found)"
+fi
+
+cat <<'FENCE'
+```
+FENCE
+
+echo ""
+echo "### Dev Dependencies"
+echo ""
+echo '```'
+
+if [ -n "$DEV_DEPS_OUTPUT" ]; then
+    echo "$DEV_DEPS_OUTPUT"
+else
+    echo "(none found)"
+fi
+
+cat <<'FENCE'
+```
+FENCE
+
+cat <<HOT
+
+---
+
+## 3. Hot Files (most changed in last 100 commits)
+
+These files change most frequently and are where bugs tend to cluster.
+
+HOT
+
+if [ "$IS_GIT_REPO" = true ] && [ -n "$HOT_FILES" ]; then
+    echo '```'
+    echo "Changes  File"
+    echo "$HOT_FILES"
+    echo '```'
+else
+    if [ "$IS_GIT_REPO" = false ]; then
+        echo "*Not a git repository -- cannot analyze change frequency.*"
+    else
+        echo "*No file changes found in recent history.*"
+    fi
+fi
+
+cat <<API
+
+---
+
+## 4. API Surface
+
+**Total endpoints:** $TOTAL_ENDPOINTS (REST: $REST_COUNT, GraphQL: $GRAPHQL_COUNT)
+
+API
+
+if [ "$REST_COUNT" -gt 0 ]; then
+    echo "### REST Endpoints"
+    echo ""
+    echo '```'
+    echo "$REST_ENDPOINTS"
+    echo '```'
+    echo ""
+fi
+
+if [ "$GRAPHQL_COUNT" -gt 0 ]; then
+    echo "### GraphQL Resolvers"
+    echo ""
+    echo '```'
+    echo "$GRAPHQL_RESOLVERS"
+    echo '```'
+    echo ""
+fi
+
+if [ "$TOTAL_ENDPOINTS" -eq 0 ]; then
+    echo "*No REST or GraphQL endpoints detected.*"
+fi
+
+cat <<TEST
+
+---
+
+## 5. Test Coverage
+
+| Metric | Value |
+|--------|-------|
+| Test files | $TEST_FILES |
+| Source files | $SOURCE_FILES |
+| Test/Source ratio | ${TEST_RATIO_PCT}% |
+| E2E test files | $E2E_FILES |
+| Test runner | $TEST_CONFIG |
+
+TEST
+
+if [ "$TEST_RATIO_PCT" -lt 20 ]; then
+    echo "> **Warning:** Test coverage ratio is low (${TEST_RATIO_PCT}%). Consider adding tests."
+elif [ "$TEST_RATIO_PCT" -ge 50 ]; then
+    echo "> Test coverage ratio looks healthy (${TEST_RATIO_PCT}%)."
+fi
+
+cat <<ARCH
+
+---
+
+## 6. Architecture Patterns
+
+**Style:** $ARCH_STYLE
+**DI container:** $DI_CONTAINER
+**Middleware:** ${MIDDLEWARE_FOUND:-none detected}
+**CQRS:** $CQRS_DETECTED
+**Event-driven:** $EVENTS_DETECTED
+
+### Detected Pattern Directories
+
+ARCH
+
+if [ -n "$ARCH_PATTERNS" ]; then
+    for pat in $ARCH_PATTERNS; do
+        echo "- \`$pat/\`"
+    done
+else
+    echo "*No standard pattern directories detected.*"
+fi
+
+echo ""
+echo "---"
+echo ""
+echo "*Generated by \`scripts/deep-map\`*"
+
+} > "$OUTPUT_FILE"
+
+# ============================================
+# STDOUT SUMMARY
+# ============================================
+
+echo ""
+echo -e "${GREEN}${BOLD}Deep Map Complete${NC}"
+echo -e "${DIM}────────────────────────────────────────────${NC}"
+echo -e "  Project:      ${CYAN}$PROJECT${NC}"
+echo -e "  Files:        $TOTAL_FILES"
+echo -e "  LOC:          ~$TOTAL_LOC"
+echo -e "  Frameworks:   ${DETECTED_FRAMEWORKS:-none}"
+echo -e "  Endpoints:    $TOTAL_ENDPOINTS (REST: $REST_COUNT, GraphQL: $GRAPHQL_COUNT)"
+echo -e "  Tests:        $TEST_FILES files (${TEST_RATIO_PCT}% ratio)"
+echo -e "  Architecture: $ARCH_STYLE"
+echo -e "  DI:           $DI_CONTAINER"
+if [ "$IS_GIT_REPO" = true ] && [ -n "$HOT_FILES" ]; then
+    TOP_HOT=$(echo "$HOT_FILES" | head -1 | awk '{print $2}')
+    echo -e "  Hottest file: $TOP_HOT"
+fi
+echo -e "${DIM}────────────────────────────────────────────${NC}"
+echo -e "  Output: ${GREEN}$OUTPUT_FILE${NC}"
+echo ""

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "example-rule-id",
+    "text": "When debugging TypeScript type errors, read tsconfig.json first",
+    "source": "insight-extraction",
+    "status": "active",
+    "reinforcementCount": 3,
+    "createdAt": "2026-01-15T10:00:00Z",
+    "lastReinforced": "2026-01-30T14:00:00Z",
+    "sourceSessionIds": ["session-abc", "session-def"]
+  }
+]

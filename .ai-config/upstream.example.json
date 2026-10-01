@@ -1,0 +1,54 @@
+{
+  "$comment": "Committed TEMPLATE \u2014 schema and placeholders only. Copy to .ai-config/upstream.json (gitignored) and fill in your upstream path and the real term list. The real terms are deliberately NOT committed: projectTerms lists the customer, product and vendor names this workspace must never ship, so committing it would publish the exact vocabulary the gate exists to keep out. scripts/workspace-drift.js falls back to this file when the local one is absent and says loudly that the result is not authoritative \u2014 a scan against placeholders proves nothing. Both config files are in `ignore`: a terms file necessarily contains its own terms, so scanning it only ever reports itself. The guard that this template stays placeholders-only is tests/_lib/upstream-config.test.js.",
+  "placeholder": true,
+  "upstream": {
+    "label": "upstream",
+    "path": ""
+  },
+  "projectTerms": [
+    "acmecorp",
+    "/\\bACME\\b/g",
+    "\\bwidgetflow\\b"
+  ],
+  "track": [
+    ".ai-config",
+    ".claude/agents",
+    ".claude/commands",
+    ".claude/skills",
+    ".claude/settings.json",
+    ".gitattributes",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "agent/_core",
+    "agent/_phases",
+    "docs/architecture",
+    "docs/reference",
+    "infra",
+    "package.json",
+    "scripts",
+    "tests"
+  ],
+  "ignore": [
+    "(^|/)node_modules(/|$)",
+    "(^|/)\\.git(/|$)",
+    "(^|/)dist(/|$)",
+    "(^|/)__pycache__(/|$)",
+    "(^|/)\\.playwright-mcp(/|$)",
+    "^agent/_projects/",
+    "^agent/_worktrees/",
+    "^tests/e2e/",
+    "\\.(png|jpg|jpeg|gif|svg|pdf|zip|ico|woff2?|mp4)$",
+    "(^|/)(rules|rules-shared)\\.json(\\.bak)?$",
+    "(^|/)(reflection-state|skill-state|agent_status|last_post)\\.json$",
+    "\\.bak$",
+    "(^|/)package-lock\\.json$",
+    "^scripts/self-improvement/staged-changes/",
+    "/runs/",
+    "(^|/)\\.ai-memory(/|$)",
+    "(^|/)logs(/|$)",
+    "(^|/)\\.tmp-test-fixtures(/|$)",
+    "^\\.claude/settings\\.local\\.json$",
+    "^\\.ai-config/upstream\\.json$",
+    "^\\.ai-config/upstream\\.example\\.json$"
+  ]
+}

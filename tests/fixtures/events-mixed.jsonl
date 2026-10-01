@@ -1,0 +1,5 @@
+{"type":"session_end","ts":"2026-01-01T10:00:00Z","session_id":"aaaaaaaa-0000-0000-0000-000000000001","project":"test-proj","task":"implement login feature with JWT tokens and refresh flow","jira_ticket":"","user":"Test User"}
+{"type":"session_end","ts":"2026-01-02T10:00:00Z","session_id":"aaaaaaaa-0000-0000-0000-000000000002","project":"test-proj","task":"","jira_ticket":"","user":"Test User"}
+{"type":"session_end","ts":"2026-01-03T10:00:00Z","session_id":"aaaaaaaa-0000-0000-0000-000000000003","project":"test-proj","task":"refactor something","jira_ticket":"PROJ-9999","user":"Test User"}
+{"type":"session_end","ts":"2026-01-04T10:00:00Z","session_id":"aaaaaaaa-0000-0000-0000-000000000004","project":"test-proj","task":"something else","jira_ticket":"PROJ-3333","user":"Test User"}
+{"type":"session_end","ts":"2026-01-05T10:00:00Z","session_id":"aaaaaaaa-0000-0000-0000-000000000005","project":"test-proj","task":"","jira_ticket":"","user":"Test User"}

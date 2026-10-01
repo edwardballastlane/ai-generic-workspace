@@ -1,0 +1,32 @@
+{
+  "folders": [
+    {
+      "name": "Lane (workspace)",
+      "path": "."
+    },
+    {
+      "name": "agent_bookshelf_playground",
+      "path": "agent/_projects/agent_bookshelf_playground"
+    }
+  ],
+  "settings": {
+    "search.followSymlinks": true,
+    "search.useIgnoreFiles": false,
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/build": true,
+      "**/.git": true,
+      "**/.next": true,
+      "**/coverage": true,
+      "**/__pycache__": true,
+      "**/package-lock.json": true
+    },
+    "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/dist/**": true,
+      "**/.git/objects/**": true
+    },
+    "explorer.excludeGitIgnore": false
+  }
+}

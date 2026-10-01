@@ -1,0 +1,143 @@
+image: node:20-slim
+
+# ── Required Repository Variables (Settings → Pipelines → Repository variables) ──
+#   BILLING_CALIBRATION         (optional, default 1.0 — list-price → billed ratio)
+#   ATLASSIAN_EMAIL             (Jira account email)
+#   ATLASSIAN_JIRA_API_TOKEN    (scoped token, read:jira-work + read:jira-user)
+#   JIRA_BASE_URL               (your Atlassian site, e.g. https://your-org.atlassian.net)
+#   BB_REPO_TOKEN               (Repository Access Token with repository:write — used
+#                                by the refresh-jira-cache / refresh-admin-cost pipelines
+#                                to push updated .ai-memory/*.json back to the branch it ran on)
+#   ANTHROPIC_ADMIN_KEY         (Admin API key — Console → Settings → Admin keys; used
+#                                only by the refresh-admin-cost pipeline. Mark SECURED.)
+#   QDRANT_URL                  (optional — shared/hosted Qdrant REST endpoint, e.g.
+#                                https://<cluster>.cloud.qdrant.io:6333. When set, the
+#                                Deploy step's self:dashboard queries it for LIVE sessions/
+#                                reflections/knowledge metrics instead of the committed
+#                                snapshot fallback. Unset → snapshot fallback as before.)
+#   QDRANT_API_KEY              (Qdrant Cloud api-key — required when QDRANT_URL points at
+#                                Qdrant Cloud. Mark SECURED.)
+#
+# ── Scheduled pipelines (set up in Bitbucket UI) ──
+#   Settings → Schedules → Create schedule → pipeline: "refresh-jira-cache"
+#     Suggested cadence: daily, off-hours. Keeps the SP cache fresh between merges.
+#   Settings → Schedules → Create schedule → pipeline: "refresh-admin-cost"
+#     Suggested cadence: daily, off-hours. Pulls the real billed cost (metered)
+#     from the Admin Cost Report API into .ai-memory/admin-cost-<month>.json.
+
+definitions:
+  steps:
+    - step: &refresh-jira-cache
+        name: Refresh Jira story-points cache
+        caches:
+          - node
+        script:
+          - apt-get update && apt-get install -y git --no-install-recommends
+          - npm ci || npm install
+          - npm run jira:refresh
+          # Commit back if the cache changed. [skip ci] prevents recursion into
+          # the branch pipeline. Requires BB_REPO_TOKEN (Repository Access
+          # Token with repository:write). The token is set once via
+          # `remote set-url --push` so it never appears in command arguments
+          # (Bitbucket already masks Repository Variables in logs, but a stray
+          # `set -x` upstream would have leaked it otherwise).
+          - |
+            set -euo pipefail
+            if git diff --quiet -- .ai-memory/jira-story-points.json; then
+              echo "Story-points cache unchanged — skipping commit"
+              exit 0
+            fi
+            git config user.email "pipelines@example.com"
+            git config user.name "Bitbucket Pipelines"
+            git remote set-url --push origin "https://x-token-auth:${BB_REPO_TOKEN}@bitbucket.org/${BITBUCKET_REPO_FULL_NAME}.git"
+            git add .ai-memory/jira-story-points.json
+            git commit -m "chore(jira): refresh story-points cache [skip ci]"
+            git push origin "HEAD:${BITBUCKET_BRANCH}"
+
+    - step: &refresh-admin-cost
+        name: Refresh Admin cost report
+        caches:
+          - node
+        script:
+          - apt-get update && apt-get install -y git --no-install-recommends
+          - npm ci || npm install
+          # Pulls metered billed cost for the current month. Skips cleanly if the
+          # Admin key is absent so the schedule never hard-fails on a missing var.
+          - |
+            set -euo pipefail
+            if [ -z "${ANTHROPIC_ADMIN_KEY:-}" ]; then
+              echo "ANTHROPIC_ADMIN_KEY not set — skipping admin-cost refresh"
+              exit 0
+            fi
+            npm run cost:admin
+          # Commit the refreshed admin-cost-<month>.json back to the branch, same
+          # token-handling hardening as refresh-jira-cache above. `git add -A`
+          # with the glob stages both new and modified shards; if nothing
+          # changed (or the glob matched nothing) the staged-diff check exits.
+          - |
+            set -euo pipefail
+            git add -A -- .ai-memory/admin-cost-*.json 2>/dev/null || true
+            if git diff --cached --quiet; then
+              echo "Admin cost report unchanged — skipping commit"
+              exit 0
+            fi
+            git config user.email "pipelines@example.com"
+            git config user.name "Bitbucket Pipelines"
+            git remote set-url --push origin "https://x-token-auth:${BB_REPO_TOKEN}@bitbucket.org/${BITBUCKET_REPO_FULL_NAME}.git"
+            git commit -m "chore(cost): refresh admin cost report [skip ci]"
+            git push origin "HEAD:${BITBUCKET_BRANCH}"
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Test (Linux)
+          caches:
+            - node
+          script:
+            - apt-get update && apt-get install -y git --no-install-recommends
+            - npm ci || npm install
+            - npm test
+            - npm run ratchet:all
+  branches:
+    main:
+      - step:
+          name: Test (Linux)
+          caches:
+            - node
+          script:
+            - apt-get update && apt-get install -y git --no-install-recommends
+            - npm ci || npm install
+            - npm test
+            - npm run ratchet:all
+      - step:
+          name: Deploy Dashboard
+          # Manual: this step pushes the combined dashboard to S3 with the
+          # pipeline's AWS credentials. Run it from the Bitbucket UI when the
+          # published dashboard should change, not on every merge.
+          trigger: manual
+          caches:
+            - node
+          script:
+            # Regenerates both views (token dashboard + self-improvement),
+            # combines them into one index.html, deploys to S3. The toggle bar
+            # at the top switches between views at the same URL.
+            - export BILLING_CALIBRATION="${BILLING_CALIBRATION:-1.0}"
+            - apt-get update && apt-get install -y git --no-install-recommends
+            - npm ci || npm install
+            - npm run jira:refresh || echo "jira:refresh skipped (creds missing or auth failed)"
+            - npm run tokens:dashboard
+            # Rebuild the self-improvement dashboard entirely from git-tracked data —
+            # no Qdrant needed in CI: rules (rules-shared.json), value-events.jsonl,
+            # session-end shards, topics (topic-cache.json), and sessions/reflections
+            # (_self_sessions.jsonl / _self_reflections.jsonl, refreshed locally via
+            # `npm run self:dashboard:publish`). On failure, falls back to the
+            # committed dashboard.html snapshot.
+            - npm run self:dashboard || echo "self:dashboard skipped — using committed dashboard.html snapshot"
+            - node scripts/combine-dashboards.js
+            - node infra/token-dashboard/deploy.js .claude/visualizations/index.html
+  custom:
+    refresh-jira-cache:
+      - step: *refresh-jira-cache
+    refresh-admin-cost:
+      - step: *refresh-admin-cost

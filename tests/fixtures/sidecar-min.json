@@ -1,0 +1,11 @@
+{
+  "session_id": "11111111-2222-3333-4444-555555555555",
+  "project": "my-backend",
+  "task": "",
+  "jira_ticket": "",
+  "prompts": 7,
+  "cost_usd": 0,
+  "duration_ms": 123456,
+  "lines_added": 12,
+  "lines_removed": 3
+}

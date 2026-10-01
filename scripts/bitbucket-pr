@@ -1,0 +1,187 @@
+#!/bin/bash
+#
+# Bitbucket PR Management Script
+# Uses ATLASSIAN_EMAIL and ATLASSIAN_API_TOKEN from .env
+#
+# Usage:
+#   ./scripts/bitbucket-pr create <workspace> <repo> <source-branch> <target-branch> "<title>" "<description>"
+#   ./scripts/bitbucket-pr list <workspace> <repo> [state]
+#   ./scripts/bitbucket-pr view <workspace> <repo> <pr-id>
+#
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Load .env from workspace root
+if [ -f "$ROOT_DIR/.env" ]; then
+    source "$ROOT_DIR/.env"
+fi
+
+# Validate credentials
+check_credentials() {
+    if [ -z "$ATLASSIAN_EMAIL" ] || [ -z "$ATLASSIAN_API_TOKEN" ]; then
+        echo -e "${RED}Error: Atlassian credentials not configured${NC}"
+        echo ""
+        echo "Add to $ROOT_DIR/.env:"
+        echo "  ATLASSIAN_EMAIL=\"your-email@company.com\""
+        echo "  ATLASSIAN_API_TOKEN=\"your-api-token\""
+        echo ""
+        echo "Get your API token at: https://id.atlassian.com/manage-profile/security/api-tokens"
+        exit 1
+    fi
+}
+
+# API base URL
+api_url() {
+    local workspace="$1"
+    local repo="$2"
+    echo "https://api.bitbucket.org/2.0/repositories/$workspace/$repo"
+}
+
+# Create PR
+create_pr() {
+    local workspace="$1"
+    local repo="$2"
+    local source_branch="$3"
+    local target_branch="$4"
+    local title="$5"
+    local description="$6"
+
+    check_credentials
+
+    echo -e "${BLUE}Creating PR: $source_branch → $target_branch${NC}"
+
+    # Build JSON payload using jq to properly escape special characters
+    json_payload=$(jq -n \
+        --arg title "$title" \
+        --arg desc "$description" \
+        --arg source "$source_branch" \
+        --arg dest "$target_branch" \
+        '{
+            title: $title,
+            description: $desc,
+            source: {branch: {name: $source}},
+            destination: {branch: {name: $dest}},
+            close_source_branch: false
+        }')
+
+    response=$(curl -s -w "\n%{http_code}" -X POST \
+        -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        "$(api_url "$workspace" "$repo")/pullrequests" \
+        -d "$json_payload")
+
+    http_code=$(echo "$response" | tail -n1)
+    body=$(echo "$response" | sed '$d')
+
+    if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+        pr_id=$(echo "$body" | jq -r '.id // empty')
+        pr_url="https://bitbucket.org/$workspace/$repo/pull-requests/$pr_id"
+
+        echo -e "${GREEN}✓ PR Created${NC}"
+        echo -e "  ID: $pr_id"
+        echo -e "  URL: $pr_url"
+    else
+        echo -e "${RED}✗ Failed to create PR (HTTP $http_code)${NC}"
+        echo "$body" | jq -r '.error.message // .' 2>/dev/null || echo "$body" | head -20
+        exit 1
+    fi
+}
+
+# List PRs
+list_prs() {
+    local workspace="$1"
+    local repo="$2"
+    local state="${3:-OPEN}"
+
+    check_credentials
+
+    echo -e "${BLUE}Listing $state PRs for $workspace/$repo${NC}"
+    echo ""
+
+    curl -s -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
+        "$(api_url "$workspace" "$repo")/pullrequests?state=$state&pagelen=10" \
+        | jq -r '.values[] | "PR #\(.id): \(.title) [\(.state)] → \(.destination.branch.name)"' 2>/dev/null \
+        || echo "No PRs found or error parsing response"
+}
+
+# View PR
+view_pr() {
+    local workspace="$1"
+    local repo="$2"
+    local pr_id="$3"
+
+    check_credentials
+
+    curl -s -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
+        "$(api_url "$workspace" "$repo")/pullrequests/$pr_id" \
+        | jq '{
+            id: .id,
+            title: .title,
+            state: .state,
+            source: .source.branch.name,
+            destination: .destination.branch.name,
+            author: .author.display_name,
+            created: .created_on,
+            description: .description
+        }' 2>/dev/null
+}
+
+# Show usage
+usage() {
+    echo "Bitbucket PR Management"
+    echo ""
+    echo "Usage:"
+    echo "  $0 create <workspace> <repo> <source> <target> \"<title>\" \"<description>\""
+    echo "  $0 list <workspace> <repo> [OPEN|MERGED|DECLINED]"
+    echo "  $0 view <workspace> <repo> <pr-id>"
+    echo ""
+    echo "Examples:"
+    echo "  $0 create my-workspace my-repo feature/login main \"Add login\" \"## Summary\\nAdded login\""
+    echo "  $0 list my-workspace my-repo MERGED"
+    echo "  $0 view my-workspace my-repo 123"
+    echo ""
+    echo "Environment (from .env):"
+    echo "  ATLASSIAN_EMAIL      - Your Atlassian account email"
+    echo "  ATLASSIAN_API_TOKEN  - API token from id.atlassian.com"
+}
+
+# Main
+case "${1:-}" in
+    create)
+        if [ $# -lt 6 ]; then
+            echo -e "${RED}Error: Missing arguments for create${NC}"
+            usage
+            exit 1
+        fi
+        create_pr "$2" "$3" "$4" "$5" "$6" "${7:-}"
+        ;;
+    list)
+        if [ $# -lt 3 ]; then
+            echo -e "${RED}Error: Missing arguments for list${NC}"
+            usage
+            exit 1
+        fi
+        list_prs "$2" "$3" "${4:-OPEN}"
+        ;;
+    view)
+        if [ $# -lt 4 ]; then
+            echo -e "${RED}Error: Missing arguments for view${NC}"
+            usage
+            exit 1
+        fi
+        view_pr "$2" "$3" "$4"
+        ;;
+    *)
+        usage
+        ;;
+esac

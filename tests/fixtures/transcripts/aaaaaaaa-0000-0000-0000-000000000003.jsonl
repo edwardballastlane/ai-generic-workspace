@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"refactor the database connection pool settings"},"isMeta":false}
+{"type":"assistant","message":{"model":"claude-opus-4-7","usage":{"input_tokens":100,"output_tokens":80}}}

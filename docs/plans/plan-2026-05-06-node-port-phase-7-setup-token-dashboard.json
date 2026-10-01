@@ -1,0 +1,98 @@
+{
+  "epic": "phase-7-setup-token-dashboard",
+  "spec": "docs/specs/spec-2026-05-06-node-port-phase-7-setup-token-dashboard.md",
+  "branch": "feat/node-port-phase-7-setup-token-dashboard",
+  "total_tasks": 4,
+  "total_acs": 19,
+  "total_waves": 3,
+  "max_parallelism": 2,
+  "critical_path_hours": 8,
+  "waves": [
+    {
+      "wave": 1,
+      "parallel": true,
+      "description": "two independent ports",
+      "tasks": [
+        {
+          "key": "T1",
+          "summary": "Port scripts/setup to scripts/setup.js (interactive readline + --config-file + --info + NO_COLOR) plus .cmd sibling, .sh stub, and tests",
+          "owner": "setup-impl",
+          "agent_type": "implementer",
+          "files_owned": [
+            "scripts/setup.js",
+            "scripts/setup.cmd",
+            "scripts/setup",
+            "tests/scripts/setup.test.js"
+          ],
+          "depends": [],
+          "estimate_hours": 3.5,
+          "acs": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "AC-7"]
+        },
+        {
+          "key": "T2",
+          "summary": "Port scripts/token-dashboard.sh to scripts/token-dashboard.js (3-pass aggregation + leg-reset + delta attribution + HTML template) plus .cmd sibling, .sh stub, fixture, and tests",
+          "owner": "token-dashboard-impl",
+          "agent_type": "implementer",
+          "files_owned": [
+            "scripts/token-dashboard.js",
+            "scripts/token-dashboard.cmd",
+            "scripts/token-dashboard.sh",
+            "tests/scripts/token-dashboard.test.js",
+            "tests/fixtures/token-events-sample.jsonl"
+          ],
+          "depends": [],
+          "estimate_hours": 6,
+          "acs": ["AC-8", "AC-9", "AC-10", "AC-11", "AC-12", "AC-13", "AC-14", "AC-15", "AC-16"],
+          "critical_path": true
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "parallel": false,
+      "description": "cross-cutting wiring (depends on T1 + T2)",
+      "tasks": [
+        {
+          "key": "T3",
+          "summary": "Update package.json tokens:dashboard / tokens:data and CLAUDE.md phase reference table",
+          "owner": "cross-cutting-impl",
+          "agent_type": "implementer",
+          "files_owned": [
+            "package.json",
+            "CLAUDE.md"
+          ],
+          "depends": ["T1", "T2"],
+          "estimate_hours": 0.5,
+          "acs": ["AC-17", "AC-18"]
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "parallel": true,
+      "description": "review + smoke (depends on T3)",
+      "tasks": [
+        {
+          "key": "T4-review",
+          "summary": "Pre-merge code review against all 19 ACs",
+          "owner": "phase7-reviewer",
+          "agent_type": "reviewer",
+          "files_owned": [],
+          "depends": ["T3"],
+          "estimate_hours": 1.5,
+          "acs": ["all-19"]
+        },
+        {
+          "key": "T4-smoke",
+          "summary": "npm test + node --check + AC mapping + live tokens:dashboard verify (no python3 invocation)",
+          "owner": "phase7-smoke",
+          "agent_type": "tester",
+          "files_owned": [],
+          "depends": ["T3"],
+          "estimate_hours": 1.5,
+          "acs": ["AC-19"]
+        }
+      ]
+    }
+  ]
+}

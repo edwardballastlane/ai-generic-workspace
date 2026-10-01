@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"PROJ-1001 fix the payment gateway timeout issue"},"isMeta":false}
+{"type":"assistant","message":{"model":"claude-opus-4-7","usage":{"input_tokens":100,"output_tokens":80}}}

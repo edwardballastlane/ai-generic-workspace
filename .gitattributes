@@ -1,0 +1,21 @@
+# Smart merge for the append-only session events log — combine both sides,
+# dedupe by (session_id, ts), sort by ts. Driver is registered per-clone by
+# ./scripts/setup-merge-drivers.sh.
+.ai-memory/session-end-events.jsonl merge=jsonl-union
+.ai-memory/session-end-events-*.jsonl merge=jsonl-union
+.claude/logs/value-events.jsonl merge=jsonl-union
+# Per-session dashboard metrics — keyed by sessionId, so two devs' session sets
+# merge cleanly into a union. (_self_reflections.jsonl is intentionally omitted:
+# it has many rows per session, which the sessionId-keyed driver would collapse.)
+.claude/visualizations/_self_sessions.jsonl merge=jsonl-union
+# Per-skill append-only run history — one row per verification run, same
+# concurrent-appends-combine-not-conflict shape as the session events log.
+.claude/skills/*/history/*.jsonl merge=jsonl-union
+
+# ── Cross-OS line endings ──────────────────────────────────────────
+# Force LF on checkout for all text files (Phase 4). .cmd files keep CRLF
+# so cmd.exe parses them correctly; everything else is LF for Linux/macOS
+# parity and to avoid corrupting JSONL/JSON files on Windows clones.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf

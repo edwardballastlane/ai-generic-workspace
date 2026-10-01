@@ -1,0 +1,735 @@
+#!/usr/bin/env bash
+
+# generate-project-claude-md — Generate a CLAUDE.md for a workspace project
+#
+# Produces a project-specific CLAUDE.md inside agent/_projects/<project>/
+# so Claude Code understands the project when working directly in that repo.
+#
+# Sources:
+#   1. .ai-contexts/<project>.yaml  (tech stack — auto-detected if missing)
+#   2. org-protocol.yaml          (org rules — gracefully skipped if absent)
+#   3. scripts/self-improvement/rules-shared.json (team-learned rules)
+#   4. Project files (package.json, directory structure)
+#
+# Usage:
+#   ./scripts/generate-project-claude-md <project-name>
+#   ./scripts/generate-project-claude-md <project-name> --dry-run
+
+# Note: Not using set -e because grep/has_dependency returns 1 when no matches
+# found, which is expected in detection logic.
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECTS_DIR="$ROOT_DIR/agent/_projects"
+CONTEXTS_DIR="$ROOT_DIR/.ai-contexts"
+RULES_FILE="$ROOT_DIR/scripts/self-improvement/rules-shared.json"
+PROTOCOL_FILE="$ROOT_DIR/org-protocol.yaml"
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# ─── Parse arguments ────────────────────────────────────────
+DRY_RUN=false
+PROJECT=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: ./scripts/generate-project-claude-md <project-name> [--dry-run]"
+            echo ""
+            echo "Generates a CLAUDE.md inside agent/_projects/<project>/ so Claude Code"
+            echo "understands the project when working directly in that repo."
+            echo ""
+            echo "Options:"
+            echo "  --dry-run    Print the generated CLAUDE.md to stdout without writing"
+            echo ""
+            echo "Sources:"
+            echo "  .ai-contexts/<project>.yaml         Tech stack context"
+            echo "  org-protocol.yaml                 Org-wide rules (optional)"
+            echo "  scripts/self-improvement/rules-shared.json  Team-learned rules"
+            echo "  Project files (package.json, dirs)   Auto-detected patterns"
+            echo ""
+            echo "Examples:"
+            echo "  ./scripts/generate-project-claude-md my-backend"
+            echo "  ./scripts/generate-project-claude-md my-portal-web --dry-run"
+            exit 0
+            ;;
+        -*)
+            echo -e "${RED}Unknown flag: $1${NC}"
+            echo "Run with --help for usage"
+            exit 1
+            ;;
+        *)
+            PROJECT="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$PROJECT" ]; then
+    echo -e "${RED}Error: Project name is required${NC}"
+    echo "Usage: ./scripts/generate-project-claude-md <project-name>"
+    echo "Run ./scripts/list-projects to see available projects"
+    exit 1
+fi
+
+# ─── Resolve project path (handle symlinks) ─────────────────
+PROJECT_DIR="$PROJECTS_DIR/$PROJECT"
+
+if [ ! -e "$PROJECT_DIR" ]; then
+    echo -e "${RED}Error: Project not found at $PROJECT_DIR${NC}"
+    echo "Run ./scripts/list-projects to see available projects"
+    exit 1
+fi
+
+# Resolve symlink to get actual project path
+if [ -L "$PROJECT_DIR" ]; then
+    ACTUAL_PATH="$(readlink -f "$PROJECT_DIR")"
+else
+    ACTUAL_PATH="$PROJECT_DIR"
+fi
+
+if [ ! -d "$ACTUAL_PATH" ]; then
+    echo -e "${RED}Error: Resolved path is not a directory: $ACTUAL_PATH${NC}"
+    exit 1
+fi
+
+CONTEXT_FILE="$CONTEXTS_DIR/$PROJECT.yaml"
+OUTPUT_FILE="$ACTUAL_PATH/CLAUDE.md"
+
+echo -e "${BLUE}Generating CLAUDE.md for: ${CYAN}$PROJECT${NC}"
+echo -e "${DIM}  Project dir: $ACTUAL_PATH${NC}"
+
+# ─── Utility functions ───────────────────────────────────────
+
+file_exists() {
+    [ -f "$ACTUAL_PATH/$1" ]
+}
+
+dir_exists() {
+    [ -d "$ACTUAL_PATH/$1" ]
+}
+
+has_dependency() {
+    local file="$1"
+    local dep="$2"
+    grep -q "\"$dep\"" "$file" 2>/dev/null
+}
+
+grep_json_value() {
+    local file="$1"
+    local key="$2"
+    grep -o "\"$key\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" "$file" 2>/dev/null | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/'
+}
+
+yaml_value() {
+    local file="$1"
+    local key="$2"
+    grep "^  *$key:" "$file" 2>/dev/null | head -1 | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//' | sed 's/ *$//'
+}
+
+yaml_list() {
+    local file="$1"
+    local key="$2"
+    grep "^  *$key:" "$file" 2>/dev/null | head -1 | sed 's/.*\[//' | sed 's/\].*//' | tr ',' '\n' | sed 's/^ *//' | sed 's/ *$//' | grep -v '^$'
+}
+
+# ─── Detect tech stack ───────────────────────────────────────
+
+LANGUAGE=""
+FRAMEWORKS=""
+PROJECT_TYPE=""
+PKG_MANAGER="npm"
+RUN_CMD="npm run"
+DATABASE=""
+ORM=""
+UNIT_TEST=""
+E2E_TEST=""
+
+detect_from_context_file() {
+    if [ ! -f "$CONTEXT_FILE" ]; then
+        return 1
+    fi
+
+    # Try both v2 (tech.language) and v1 (tech_stack.primary_language) formats
+    LANGUAGE=$(yaml_value "$CONTEXT_FILE" "language")
+    [ -z "$LANGUAGE" ] && LANGUAGE=$(yaml_value "$CONTEXT_FILE" "primary_language")
+
+    FRAMEWORKS=$(yaml_list "$CONTEXT_FILE" "frameworks" | tr '\n' ' ' | sed 's/ *$//')
+
+    # Project type from product section
+    PROJECT_TYPE=$(yaml_value "$CONTEXT_FILE" "type")
+
+    # Database
+    DATABASE=$(yaml_list "$CONTEXT_FILE" "databases" | tr '\n' ' ' | sed 's/ *$//')
+
+    # ORM
+    ORM=$(yaml_value "$CONTEXT_FILE" "orm")
+
+    # Testing
+    UNIT_TEST=$(yaml_value "$CONTEXT_FILE" "unit")
+    E2E_TEST=$(yaml_value "$CONTEXT_FILE" "e2e")
+
+    return 0
+}
+
+detect_from_project_files() {
+    local PKG="$ACTUAL_PATH/package.json"
+
+    # Language
+    if file_exists "tsconfig.json"; then
+        LANGUAGE="typescript"
+    elif file_exists "package.json"; then
+        LANGUAGE="javascript"
+    elif file_exists "requirements.txt" || file_exists "pyproject.toml"; then
+        LANGUAGE="python"
+    elif file_exists "go.mod"; then
+        LANGUAGE="go"
+    elif file_exists "Cargo.toml"; then
+        LANGUAGE="rust"
+    elif file_exists "pom.xml" || file_exists "build.gradle"; then
+        LANGUAGE="java"
+    elif find "$ACTUAL_PATH" -maxdepth 3 -name "*.csproj" 2>/dev/null | head -1 | grep -q .; then
+        LANGUAGE="csharp"
+    else
+        LANGUAGE="unknown"
+    fi
+
+    # Frameworks (from package.json)
+    if file_exists "package.json"; then
+        local fw=""
+        has_dependency "$PKG" "@nestjs/core" && fw="$fw nestjs"
+        has_dependency "$PKG" "next" && fw="$fw next"
+        has_dependency "$PKG" "express" && fw="$fw express"
+        has_dependency "$PKG" "react" && fw="$fw react"
+        has_dependency "$PKG" "vue" && fw="$fw vue"
+        has_dependency "$PKG" "@angular/core" && fw="$fw angular"
+        has_dependency "$PKG" "fastify" && fw="$fw fastify"
+        has_dependency "$PKG" "hono" && fw="$fw hono"
+        FRAMEWORKS=$(echo "$fw" | sed 's/^ *//')
+    fi
+
+    # Project type
+    if echo "$FRAMEWORKS" | grep -qiE 'next|nuxt|react|vue|angular|svelte'; then
+        PROJECT_TYPE="frontend"
+    elif echo "$FRAMEWORKS" | grep -qiE 'express|nestjs|fastify|hono'; then
+        PROJECT_TYPE="backend"
+    elif file_exists "serverless.yml" || file_exists "serverless.yaml" || echo "$PROJECT" | grep -qi "lambda"; then
+        PROJECT_TYPE="lambda"
+    elif file_exists "Podfile" || file_exists "pubspec.yaml" || echo "$PROJECT" | grep -qi "mobile"; then
+        PROJECT_TYPE="mobile"
+    else
+        PROJECT_TYPE="backend"
+    fi
+
+    # Package manager
+    if file_exists "pnpm-lock.yaml"; then
+        PKG_MANAGER="pnpm"
+        RUN_CMD="pnpm"
+    elif file_exists "yarn.lock"; then
+        PKG_MANAGER="yarn"
+        RUN_CMD="yarn"
+    elif file_exists "bun.lockb"; then
+        PKG_MANAGER="bun"
+        RUN_CMD="bun run"
+    fi
+
+    # Database
+    if file_exists "package.json"; then
+        local db=""
+        has_dependency "$PKG" "pg" && db="$db postgresql"
+        has_dependency "$PKG" "mysql2" && db="$db mysql"
+        has_dependency "$PKG" "mongodb" && db="$db mongodb"
+        has_dependency "$PKG" "@azure/cosmos" && db="$db cosmosdb"
+        (has_dependency "$PKG" "redis" || has_dependency "$PKG" "ioredis") && db="$db redis"
+        DATABASE=$(echo "$db" | sed 's/^ *//')
+
+        has_dependency "$PKG" "prisma" && ORM="prisma"
+        has_dependency "$PKG" "drizzle-orm" && ORM="drizzle"
+        has_dependency "$PKG" "typeorm" && ORM="typeorm"
+        has_dependency "$PKG" "sequelize" && ORM="sequelize"
+        has_dependency "$PKG" "mongoose" && ORM="mongoose"
+    fi
+
+    # Testing
+    if file_exists "package.json"; then
+        has_dependency "$PKG" "jest" && UNIT_TEST="jest"
+        has_dependency "$PKG" "vitest" && UNIT_TEST="vitest"
+        has_dependency "$PKG" "mocha" && UNIT_TEST="mocha"
+        has_dependency "$PKG" "cypress" && E2E_TEST="cypress"
+        (has_dependency "$PKG" "playwright" || has_dependency "$PKG" "@playwright/test") && E2E_TEST="playwright"
+    fi
+}
+
+# Try context file first, fall back to auto-detection
+if ! detect_from_context_file; then
+    echo -e "${YELLOW}  No .ai-contexts/$PROJECT.yaml found, auto-detecting tech stack...${NC}"
+    detect_from_project_files
+else
+    # Fill gaps from project files even if context file exists
+    detect_from_project_files
+fi
+
+# ─── Detect directory structure ──────────────────────────────
+
+COMPONENTS_DIR=""
+HOOKS_DIR=""
+UTILS_DIR=""
+SERVICES_DIR=""
+API_DIR=""
+MODELS_DIR=""
+CONTROLLERS_DIR=""
+
+for d in "components" "src/components" "app/components" "lib/components"; do
+    dir_exists "$d" && COMPONENTS_DIR="$d" && break
+done
+
+for d in "hooks" "src/hooks" "app/hooks" "lib/hooks" "composables" "src/composables"; do
+    dir_exists "$d" && HOOKS_DIR="$d" && break
+done
+
+for d in "utils" "src/utils" "lib/utils" "helpers" "src/helpers" "pkg/utils"; do
+    dir_exists "$d" && UTILS_DIR="$d" && break
+done
+
+for d in "services" "src/services" "app/services" "internal/services" "pkg/services"; do
+    dir_exists "$d" && SERVICES_DIR="$d" && break
+done
+
+for d in "app/api" "api" "src/api" "routes" "src/routes" "internal/api" "cmd/api"; do
+    dir_exists "$d" && API_DIR="$d" && break
+done
+
+for d in "models" "src/models" "entities" "src/entities" "internal/models" "domain"; do
+    dir_exists "$d" && MODELS_DIR="$d" && break
+done
+
+for d in "controllers" "src/controllers" "internal/handlers" "handlers" "app/controllers"; do
+    dir_exists "$d" && CONTROLLERS_DIR="$d" && break
+done
+
+# ─── Detect build/dev/test commands ──────────────────────────
+
+BUILD_CMD=""
+DEV_CMD=""
+TEST_CMD=""
+LINT_CMD=""
+
+if file_exists "package.json"; then
+    PKG="$ACTUAL_PATH/package.json"
+    grep -q '"build"' "$PKG" 2>/dev/null && BUILD_CMD="$RUN_CMD build"
+    grep -q '"dev"' "$PKG" 2>/dev/null && DEV_CMD="$RUN_CMD dev"
+    grep -q '"start"' "$PKG" 2>/dev/null && [ -z "$DEV_CMD" ] && DEV_CMD="$RUN_CMD start"
+    grep -q '"test"' "$PKG" 2>/dev/null && TEST_CMD="$RUN_CMD test"
+    grep -q '"lint"' "$PKG" 2>/dev/null && LINT_CMD="$RUN_CMD lint"
+elif file_exists "Makefile"; then
+    grep -q '^build:' "$ACTUAL_PATH/Makefile" 2>/dev/null && BUILD_CMD="make build"
+    grep -q '^dev:' "$ACTUAL_PATH/Makefile" 2>/dev/null && DEV_CMD="make dev"
+    grep -q '^test:' "$ACTUAL_PATH/Makefile" 2>/dev/null && TEST_CMD="make test"
+    grep -q '^lint:' "$ACTUAL_PATH/Makefile" 2>/dev/null && LINT_CMD="make lint"
+fi
+
+# ─── Detect git default branch ──────────────────────────────
+
+DEFAULT_BRANCH="staging"
+if [ -d "$ACTUAL_PATH/.git" ]; then
+    local_default=$(git -C "$ACTUAL_PATH" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+    if [ -n "$local_default" ]; then
+        DEFAULT_BRANCH="$local_default"
+    else
+        for branch in staging main master dev develop; do
+            if git -C "$ACTUAL_PATH" show-ref --verify --quiet "refs/remotes/origin/$branch" 2>/dev/null; then
+                DEFAULT_BRANCH="$branch"
+                break
+            fi
+        done
+    fi
+fi
+
+# ─── Read org-protocol.yaml (if exists) ───────────────────
+
+PROTOCOL_ROLES=""
+PROTOCOL_QUALITY=""
+
+if [ -f "$PROTOCOL_FILE" ]; then
+    echo -e "${DIM}  Reading org-protocol.yaml...${NC}"
+    # Extract roles section
+    PROTOCOL_ROLES=$(sed -n '/^roles:/,/^[a-z]/p' "$PROTOCOL_FILE" 2>/dev/null | head -n -1)
+    # Extract quality gates
+    PROTOCOL_QUALITY=$(sed -n '/^quality_gates:/,/^[a-z]/p' "$PROTOCOL_FILE" 2>/dev/null | head -n -1)
+fi
+
+# ─── Filter learned rules ────────────────────────────────────
+
+LEARNED_RULES=""
+
+filter_learned_rules() {
+    if [ ! -f "$RULES_FILE" ]; then
+        return
+    fi
+
+    # Build keyword list from tech stack for matching
+    local keywords="$LANGUAGE $FRAMEWORKS $PROJECT_TYPE $DATABASE $ORM"
+    # Add project name segments (e.g., "my" "backend" from "my-backend")
+    keywords="$keywords $(echo "$PROJECT" | tr '-' ' ')"
+
+    # Use python3 for JSON parsing — filter by keyword relevance and sort by reinforcementCount
+    LEARNED_RULES=$(python3 -c "
+import json, sys
+
+try:
+    with open('$RULES_FILE', 'r') as f:
+        rules = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(0)
+
+keywords = '''$keywords'''.lower().split()
+keywords = [k for k in keywords if k and k != 'unknown']
+
+def score_rule(rule):
+    text = rule.get('text', '').lower()
+    cats = ' '.join(rule.get('categories', [])).lower()
+    combined = text + ' ' + cats
+
+    # Keyword match score
+    kw_score = sum(1 for kw in keywords if kw in combined)
+
+    # Reinforcement count as secondary sort
+    reinf = rule.get('reinforcementCount', 0)
+
+    return (kw_score, reinf)
+
+# Only include active rules
+active_rules = [r for r in rules if r.get('status') == 'active']
+
+# Score and sort: prefer rules that match the project tech, then by reinforcement
+scored = [(score_rule(r), r) for r in active_rules]
+scored.sort(key=lambda x: x[0], reverse=True)
+
+# Take top 10 — include both tech-matched and high-reinforcement rules
+# If fewer than 3 match tech stack, fill with most-reinforced general rules
+tech_matched = [(s, r) for s, r in scored if s[0] > 0]
+general = [(s, r) for s, r in scored if s[0] == 0]
+general.sort(key=lambda x: x[0][1], reverse=True)
+
+results = tech_matched[:10]
+if len(results) < 10:
+    results.extend(general[:10 - len(results)])
+
+for _, rule in results[:10]:
+    # Escape backticks for markdown
+    text = rule['text'].replace('\`', '\\\`')
+    print(text)
+" 2>/dev/null || true)
+}
+
+filter_learned_rules
+
+# ─── Build AI persona ────────────────────────────────────────
+
+build_persona() {
+    local framework_desc=""
+    if [ -n "$FRAMEWORKS" ]; then
+        # Use first framework as primary descriptor
+        local primary_fw=$(echo "$FRAMEWORKS" | awk '{print $1}')
+        framework_desc="$primary_fw"
+    else
+        framework_desc="$LANGUAGE"
+    fi
+
+    local domain=""
+    case "$PROJECT" in
+        *backend*) domain="API reliability, data integrity, and performance" ;;
+        *portal*|*web*) domain="user experience, component reusability, and rendering performance" ;;
+        *mobile*) domain="native performance, offline capability, and responsive design" ;;
+        *lambda*) domain="cold start optimization, execution efficiency, and error handling" ;;
+        *analytics*) domain="data pipeline accuracy, query performance, and reporting reliability" ;;
+        *) domain="code quality, maintainability, and correctness" ;;
+    esac
+
+    echo "You are a $framework_desc specialist working on $PROJECT. Focus on $domain."
+}
+
+PERSONA=$(build_persona)
+
+# ─── Build project description ───────────────────────────────
+
+PROJECT_DESCRIPTION=""
+if file_exists "README.md"; then
+    PROJECT_DESCRIPTION=$(grep -v '^#' "$ACTUAL_PATH/README.md" 2>/dev/null | grep -v '^\[' | grep -v '^<' | grep -v '^$' | head -1 | head -c 200)
+fi
+if [ -z "$PROJECT_DESCRIPTION" ] && file_exists "package.json"; then
+    PROJECT_DESCRIPTION=$(grep_json_value "$ACTUAL_PATH/package.json" "description")
+fi
+
+# ─── Generate the CLAUDE.md content ──────────────────────────
+
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+generate_output() {
+cat << 'HEADER'
+# Auto-generated by Lane. Do not edit directly.
+# Regenerate: ./scripts/generate-project-claude-md PROJECT_NAME_PLACEHOLDER
+# This file should be added to the project's .gitignore
+HEADER
+
+cat << EOF
+
+# $PROJECT — Claude Code Configuration
+
+> Generated: $TIMESTAMP
+
+## AI Persona
+
+$PERSONA
+
+## Project Identity
+
+| Property | Value |
+|----------|-------|
+| **Name** | $PROJECT |
+| **Type** | $PROJECT_TYPE |
+| **Language** | $LANGUAGE |
+| **Frameworks** | ${FRAMEWORKS:-none detected} |
+EOF
+
+[ -n "$DATABASE" ] && echo "| **Database** | $DATABASE |"
+[ -n "$ORM" ] && echo "| **ORM** | $ORM |"
+[ -n "$PROJECT_DESCRIPTION" ] && echo -e "\n$PROJECT_DESCRIPTION"
+
+# ─── Architecture Rules ─────────────────────────────────
+cat << 'EOF'
+
+## Architecture Rules
+
+### Org Protocol (Org-Wide)
+
+These rules apply to ALL projects in this workspace:
+
+- **Role Separation**: The AI that writes the code is NEVER the same role that reviews it
+- **6 Shared Roles**: Architect, Implementer, Reviewer, Tester, Documentarian, Integrator
+- **Branch Strategy**: Two-branch model (staging + master) with cherry-pick promotion
+- **Branch Naming**: `<type>/<ticket>-<description>-<target>` (e.g., `feature/PROJ-123-add-auth-staging`)
+- **Deploy Order**: my-backend or my-lambda-exec first, then my-portal-web, then my-mobile
+- **Cross-Service Changes**: Require 2 approvals and a tech-lead architecture review
+- **ADRs**: Significant decisions must be documented
+- **No Scope Expansion**: Without PO approval
+EOF
+
+# Project-specific overrides from protocol
+if [ -n "$PROTOCOL_ROLES" ]; then
+    echo ""
+    echo "### Project-Specific Overrides (from org-protocol.yaml)"
+    echo ""
+    echo '```yaml'
+    echo "$PROTOCOL_ROLES"
+    echo '```'
+fi
+
+# ─── Quality Standards ───────────────────────────────────
+cat << 'EOF'
+
+## Quality Standards
+
+### Definition of Done
+
+- [ ] Code reviewed by a DIFFERENT AI role (not the one that wrote it)
+- [ ] Tests cover new behavior + at least 2 edge cases
+- [ ] No new SonarQube critical or blocker issues
+- [ ] Lint passes, build succeeds
+- [ ] Significant decisions documented (ADR or WHY comments)
+- [ ] No scope expansion without PO approval
+- [ ] Snapshot comparison for perf-sensitive changes (if applicable)
+
+### Quality Gates
+
+| Stage | Checks |
+|-------|--------|
+| **Pre-Commit** | No secrets, lint, type check |
+| **Pre-PR** | Tests, coverage >= 70%, build, AI review, snapshots |
+| **CI** | SonarQube (zero critical/blocker), dep audit, integration tests |
+| **Post-Merge** | Datadog baseline, error classification |
+
+### Security (Non-Negotiable)
+
+- NEVER hardcode secrets or API keys
+- NEVER commit .env files
+- No force push to master/staging
+- OWASP Top 10 checked in every review
+- Zero high/critical dependency vulnerabilities
+- Auth flows require 2-person review
+EOF
+
+if [ -n "$PROTOCOL_QUALITY" ]; then
+    echo ""
+    echo "### Additional Quality Gates (from org-protocol.yaml)"
+    echo ""
+    echo '```yaml'
+    echo "$PROTOCOL_QUALITY"
+    echo '```'
+fi
+
+# ─── Learned Rules ───────────────────────────────────────
+if [ -n "$LEARNED_RULES" ]; then
+    echo ""
+    echo "## Learned Rules (Team Knowledge)"
+    echo ""
+    echo "These rules were learned from past sessions and are ranked by relevance to this project."
+    echo ""
+    local rule_num=1
+    while IFS= read -r rule; do
+        if [ -n "$rule" ]; then
+            echo "$rule_num. $rule"
+            rule_num=$((rule_num + 1))
+        fi
+    done <<< "$LEARNED_RULES"
+fi
+
+# ─── Build & Test Commands ───────────────────────────────
+echo ""
+echo "## Build & Test"
+echo ""
+echo '```bash'
+[ -n "$DEV_CMD" ] && echo "# Development"  && echo "$DEV_CMD"
+[ -n "$BUILD_CMD" ] && echo ""  && echo "# Build" && echo "$BUILD_CMD"
+[ -n "$TEST_CMD" ] && echo "" && echo "# Test" && echo "$TEST_CMD"
+[ -n "$LINT_CMD" ] && echo "" && echo "# Lint" && echo "$LINT_CMD"
+echo '```'
+
+# Package manager note
+if [ "$PKG_MANAGER" != "npm" ]; then
+    echo ""
+    echo "**Package Manager**: $PKG_MANAGER (use \`$PKG_MANAGER install\` not \`npm install\`)"
+fi
+
+# ─── Lane Commands ───────────────────────────────────────
+cat << EOF
+
+## Lane Commands
+
+Key commands relevant to this project:
+
+| Command | Description |
+|---------|-------------|
+| \`/work-ticket "task"\` | Smart workflow router — auto-selects Quick Flow, Full BMAD, or Enterprise |
+| \`/brainstorm "topic"\` | 6 AI agents brainstorm in parallel, then synthesize |
+| \`/tech-debate "question"\` | 5-perspective structured debate |
+EOF
+
+# Add project-type-specific commands
+case "$PROJECT_TYPE" in
+    backend)
+        cat << 'EOF'
+| `./scripts/dd-bug-hunter <project>` | Datadog-driven autonomous bug analysis |
+| `./scripts/snapshot-compare` | Before/after performance comparison |
+EOF
+        ;;
+    frontend)
+        cat << 'EOF'
+| `./scripts/snapshot-compare` | Before/after visual regression comparison |
+EOF
+        ;;
+    lambda)
+        cat << 'EOF'
+| `./scripts/snapshot-compare` | Cold start timing comparison |
+EOF
+        ;;
+esac
+
+cat << 'EOF'
+| `./scripts/generate-context <project>` | Regenerate tech stack context |
+| `./scripts/capture-lesson` | Record a self-improvement rule |
+| `./scripts/learn-from-pr` | Extract lessons from merged PRs |
+EOF
+
+# ─── File Organization ───────────────────────────────────
+echo ""
+echo "## File Organization"
+echo ""
+echo "Detected directory conventions for this project:"
+echo ""
+
+local has_dirs=false
+[ -n "$COMPONENTS_DIR" ] && echo "- **Components**: \`$COMPONENTS_DIR/\`" && has_dirs=true
+[ -n "$HOOKS_DIR" ] && echo "- **Hooks**: \`$HOOKS_DIR/\`" && has_dirs=true
+[ -n "$UTILS_DIR" ] && echo "- **Utilities**: \`$UTILS_DIR/\`" && has_dirs=true
+[ -n "$SERVICES_DIR" ] && echo "- **Services**: \`$SERVICES_DIR/\`" && has_dirs=true
+[ -n "$API_DIR" ] && echo "- **API Routes**: \`$API_DIR/\`" && has_dirs=true
+[ -n "$MODELS_DIR" ] && echo "- **Models**: \`$MODELS_DIR/\`" && has_dirs=true
+[ -n "$CONTROLLERS_DIR" ] && echo "- **Controllers**: \`$CONTROLLERS_DIR/\`" && has_dirs=true
+
+if [ "$has_dirs" = false ]; then
+    echo "_No standard directories detected. Inspect the project root for its conventions._"
+fi
+
+cat << 'EOF'
+
+**Rules:**
+- ALWAYS reuse existing components/services before creating new ones
+- Follow the patterns already established in this codebase
+- Check existing utilities before reimplementing
+- Keep files under 500 lines
+
+## Git Workflow
+
+EOF
+
+echo "- **Default Branch**: \`$DEFAULT_BRANCH\`"
+
+cat << 'EOF'
+- **Branch Naming**: `<type>/<ticket>-<description>-<target>`
+  - Types: `feature`, `fix`, `hotfix`, `chore`, `refactor`
+  - Target: `-staging` or `-master`
+- **PR Flow**: Branch from target, implement, quality gate, open PR, human review
+- **Cherry-pick Promotion**: Staging first, then cherry-pick to master branch
+- NEVER force push to master or staging
+EOF
+}
+
+# ─── Output ──────────────────────────────────────────────
+
+# Replace placeholder in header
+OUTPUT_CONTENT=$(generate_output | sed "s|PROJECT_NAME_PLACEHOLDER|$PROJECT|g")
+
+if [ "$DRY_RUN" = true ]; then
+    echo ""
+    echo -e "${YELLOW}=== DRY RUN — would write to: $OUTPUT_FILE ===${NC}"
+    echo ""
+    echo "$OUTPUT_CONTENT"
+    echo ""
+    echo -e "${YELLOW}=== END DRY RUN ===${NC}"
+else
+    echo "$OUTPUT_CONTENT" > "$OUTPUT_FILE"
+    echo ""
+    echo -e "${GREEN}CLAUDE.md generated successfully!${NC}"
+    echo -e "  ${DIM}Output: $OUTPUT_FILE${NC}"
+    echo ""
+    echo -e "${BLUE}Project:${NC}    $PROJECT ($PROJECT_TYPE)"
+    echo -e "${BLUE}Language:${NC}   $LANGUAGE"
+    echo -e "${BLUE}Frameworks:${NC} ${FRAMEWORKS:-none detected}"
+    [ -n "$DATABASE" ] && echo -e "${BLUE}Database:${NC}   $DATABASE"
+    echo ""
+
+    # Count learned rules included
+    if [ -n "$LEARNED_RULES" ]; then
+        RULE_COUNT=$(echo "$LEARNED_RULES" | grep -c '.' || true)
+        echo -e "${BLUE}Learned Rules:${NC} $RULE_COUNT included"
+    else
+        echo -e "${YELLOW}Learned Rules:${NC} none (no rules-shared.json or no matching rules)"
+    fi
+
+    echo ""
+    echo -e "${YELLOW}Note:${NC} Add CLAUDE.md to the project's .gitignore:"
+    echo -e "  ${DIM}echo 'CLAUDE.md' >> $ACTUAL_PATH/.gitignore${NC}"
+fi

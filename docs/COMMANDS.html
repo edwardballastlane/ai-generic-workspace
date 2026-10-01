@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commands Reference - Lane</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-purple: #a371f7;
+            --accent-red: #f85149;
+            --accent-orange: #db6d28;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 0.5rem 0;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--accent-blue);
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        /* Section Divider */
+        .section-divider {
+            text-align: center;
+            margin: 3rem 0 2rem;
+            position: relative;
+        }
+
+        .section-divider::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--border-color);
+        }
+
+        .section-divider h2 {
+            display: inline-block;
+            background: var(--bg-primary);
+            padding: 0 1.5rem;
+            position: relative;
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card h3 {
+            color: var(--text-primary);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.2rem;
+        }
+
+        .card.engineer {
+            border-left: 4px solid var(--accent-green);
+        }
+
+        .card.ai-system {
+            border-left: 4px solid var(--accent-purple);
+            opacity: 0.9;
+        }
+
+        /* Quick Reference */
+        .quick-ref {
+            background: linear-gradient(135deg, rgba(63, 185, 80, 0.1), rgba(88, 166, 255, 0.1));
+            border: 2px solid var(--accent-green);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .quick-ref h2 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            color: var(--accent-green);
+        }
+
+        .quick-ref .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .quick-ref-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .quick-ref-item {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .quick-ref-item:hover {
+            transform: translateY(-4px);
+        }
+
+        .quick-ref-item code {
+            display: block;
+            color: var(--accent-green);
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+
+        .quick-ref-item span {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Command Cards */
+        .command-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .command-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 1rem;
+            align-items: center;
+            transition: border-color 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .command-card:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .command-card .cmd {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.95rem;
+            color: var(--accent-green);
+            background: var(--bg-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .command-card .desc {
+            color: var(--text-secondary);
+        }
+
+        .command-card .category {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .category-workflow { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+        .category-creative { background: rgba(255, 165, 0, 0.2); color: #ffa500; }
+        .category-phase { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+        .category-project { background: rgba(210, 153, 34, 0.2); color: var(--accent-yellow); }
+        .category-ai { background: rgba(163, 113, 247, 0.2); color: var(--accent-purple); }
+
+        /* Agent Reference */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .agent-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid var(--accent-blue);
+        }
+
+        .agent-card h4 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-card .icon {
+            font-size: 1.25rem;
+        }
+
+        .agent-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .agent-card .phase {
+            font-size: 0.8rem;
+            color: var(--accent-purple);
+        }
+
+        /* Script Reference */
+        .script-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .script-table th,
+        .script-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .script-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent-purple);
+            font-weight: 600;
+        }
+
+        .script-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .script-table code {
+            background: var(--bg-primary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--accent-green);
+        }
+
+        /* Code Examples */
+        .code-block {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+        }
+
+        .code-block .comment {
+            color: var(--text-secondary);
+        }
+
+        .code-block .command {
+            color: var(--accent-green);
+        }
+
+        .code-block .prompt {
+            color: var(--accent-yellow);
+        }
+
+        /* Examples Section */
+        .example-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .example-card {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .example-card h4 {
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .example-card .input {
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+        }
+
+        .example-card .output {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .example-card .output strong {
+            color: var(--accent-blue);
+        }
+
+        /* Tips */
+        .tip-box {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .tip-box h4 {
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .tip-box p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .tip-box.warning {
+            background: rgba(163, 113, 247, 0.1);
+            border-color: var(--accent-purple);
+        }
+
+        .tip-box.warning h4 {
+            color: var(--accent-purple);
+        }
+
+        /* Collapsible Section */
+        .collapsible-section {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-secondary);
+        }
+
+        .section-divider-clickable {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--accent-purple);
+            list-style: none;
+            border-radius: 12px;
+        }
+
+        .section-divider-clickable::-webkit-details-marker {
+            display: none;
+        }
+
+        .section-divider-clickable:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .collapse-hint {
+            font-size: 0.85rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        .collapsible-section[open] .collapse-hint {
+            display: none;
+        }
+
+        .collapsible-section[open] .section-divider-clickable {
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .collapsible-section > *:not(summary) {
+            padding: 0 1.5rem;
+        }
+
+        .collapsible-section > *:last-child {
+            padding-bottom: 1.5rem;
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+
+            .command-card {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+
+            .command-card .cmd {
+                width: fit-content;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="GETTING_STARTED.html">Getting Started</a></li>
+            <li><a href="USAGE_GUIDE.html">Usage Guide</a></li>
+            <li><a href="VALIDATION_PROCESS.html">Validation Process</a></li>
+            <li><a href="COMMANDS.html" class="active">Commands</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>Commands Reference</h1>
+            <p>All available slash commands for the Lane workspace</p>
+        </header>
+
+        <!-- Two Types Explanation -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+            <div style="background: rgba(63, 185, 80, 0.1); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1rem;">
+                <h3 style="color: var(--accent-green); margin: 0 0 0.5rem 0;">&#127919; Engineer Commands</h3>
+                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">Commands <strong>you use daily</strong> to start workflows, brainstorm, and manage projects.</p>
+            </div>
+            <div style="background: rgba(163, 113, 247, 0.1); border: 1px solid var(--accent-purple); border-radius: 8px; padding: 1rem;">
+                <h3 style="color: var(--accent-purple); margin: 0 0 0.5rem 0;">&#129302; AI/System Commands</h3>
+                <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">Commands the <strong>AI manages automatically</strong> for state tracking and context optimization.</p>
+            </div>
+        </div>
+
+        <!-- Quick Reference - Engineer Commands Only -->
+        <div class="quick-ref">
+            <h2>Engineer Commands</h2>
+            <p class="subtitle">These are the commands you'll use daily</p>
+            <div class="quick-ref-grid">
+                <div class="quick-ref-item">
+                    <code>/work-ticket</code>
+                    <span>Start any task</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/jira-epic</code>
+                    <span>Epic/PRD workflow</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/brainstorm</code>
+                    <span>Generate ideas</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/tech-debate</code>
+                    <span>Technical decisions</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/spec</code>
+                    <span>Generate a PRD</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/breakdown</code>
+                    <span>Wave-based plan</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/swarm-implement</code>
+                    <span>Parallel execution</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/implement</code>
+                    <span>Jump to coding</span>
+                </div>
+                <div class="quick-ref-item">
+                    <code>/add-project</code>
+                    <span>Add project</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ENGINEER COMMANDS ==================== -->
+        <div class="section-divider">
+            <h2>ENGINEER COMMANDS</h2>
+        </div>
+
+        <!-- Workflow Commands -->
+        <section class="card engineer">
+            <h2>&#127919; Workflow Commands</h2>
+            <p>Start and manage development workflows.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">/work-ticket "task"</code>
+                    <span class="desc">Smart router - AI analyzes your task and picks the right workflow (Quick, Full BMAD, or Enterprise)</span>
+                    <span class="category category-workflow">Workflow</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/jira-epic PPT-123</code>
+                    <span class="desc">Analyze Jira epic, build dependency graph, and create branch chain for ordered task execution</span>
+                    <span class="category category-workflow">Workflow</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/jira-epic [PRD text]</code>
+                    <span class="desc">Parse PRD document, break into tasks with dependencies, generate epic context files</span>
+                    <span class="category category-workflow">Workflow</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/analyze "task"</code>
+                    <span class="desc">Start in Analysis phase (Analyst, Product Owner) - for research-heavy tasks</span>
+                    <span class="category category-phase">Phase</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/plan "task"</code>
+                    <span class="desc">Start in Planning phase (Architect, Designer) - skip analysis, go straight to design</span>
+                    <span class="category category-phase">Phase</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/implement "task"</code>
+                    <span class="desc">Start in Implementation phase (Developer, Tester) - for tasks where you know the design</span>
+                    <span class="category category-phase">Phase</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/deliver "task"</code>
+                    <span class="desc">Start in Delivery phase (Deployer, Documenter) - for deployment and docs only</span>
+                    <span class="category category-phase">Phase</span>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <h4>&#128161; Which one to use?</h4>
+                <p><strong>/work-ticket</strong> is the default - it auto-detects the right workflow. Use <strong>/jira-epic</strong> for multi-task epics with dependencies. Use phase commands only when you want to skip earlier phases.</p>
+            </div>
+        </section>
+
+        <!-- Spec-to-Implementation Pipeline -->
+        <section class="card engineer">
+            <h2>&#128736; Spec-to-Implementation Pipeline</h2>
+            <p>Go from idea to running code through a structured pipeline with parallel agent execution.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">/spec "task"</code>
+                    <span class="desc">Generate a structured PRD (Product Requirements Document) from a task description</span>
+                    <span class="category category-workflow">Pipeline</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/breakdown &lt;spec-file&gt;</code>
+                    <span class="desc">Create a wave-based implementation plan from a spec - groups tasks into parallelizable waves</span>
+                    <span class="category category-workflow">Pipeline</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/swarm-implement &lt;plan&gt;</code>
+                    <span class="desc">Execute an implementation plan with parallel agent teams working across waves</span>
+                    <span class="category category-workflow">Pipeline</span>
+                </div>
+            </div>
+
+            <h3>Example Flow</h3>
+            <div class="code-block">
+                <span class="comment"># 1. Generate a spec</span><br>
+                <span class="prompt">/spec "Add role-based access control"</span><br><br>
+                <span class="comment"># 2. Break it into waves of parallel tasks</span><br>
+                <span class="prompt">/breakdown docs/specs/rbac-spec.md</span><br><br>
+                <span class="comment"># 3. Execute with agent swarm</span><br>
+                <span class="prompt">/swarm-implement docs/plans/rbac-plan.md</span>
+            </div>
+
+            <div class="tip-box">
+                <h4>&#128161; Structured Artifacts</h4>
+                <p>Each stage produces structured artifacts (spec files, plan files) so you can review and adjust before moving to the next step.</p>
+            </div>
+        </section>
+
+        <!-- Self-Improvement & Analysis -->
+        <section class="card engineer">
+            <h2>&#128200; Self-Improvement &amp; Analysis</h2>
+            <p>Lane learns from every session. Rules are auto-injected on every prompt (58 team + personal rules).</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">npm run self:dashboard</code>
+                    <span class="desc">Interactive dashboard showing rules, stats, and pending proposals</span>
+                    <span class="category category-project">Self-Improvement</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">npm run rules:promote</code>
+                    <span class="desc">Promote a personal rule to a shared team rule</span>
+                    <span class="category category-project">Self-Improvement</span>
+                </div>
+            </div>
+
+            <h3>Analysis Scripts</h3>
+            <table class="script-table">
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>./scripts/deep-map &lt;project&gt;</code></td>
+                        <td>Deep codebase analysis - maps structure, dependencies, and patterns</td>
+                    </tr>
+                    <tr>
+                        <td><code>./scripts/wave-planner</code></td>
+                        <td>Task parallelization - groups tasks into concurrent waves</td>
+                    </tr>
+                    <tr>
+                        <td><code>./scripts/fresh-context</code></td>
+                        <td>Combat context rot - regenerates stale cached context</td>
+                    </tr>
+                    <tr>
+                        <td><code>./scripts/snapshot-compare</code></td>
+                        <td>Before/after performance comparison between snapshots</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="tip-box">
+                <h4>&#128161; No External Services Required</h4>
+                <p>Team rules work without Qdrant - they're injected via a lightweight JSON+keyword hook. Qdrant is only needed for optional semantic vector search.</p>
+            </div>
+        </section>
+
+        <!-- Creative & Decision Tools -->
+        <section class="card engineer">
+            <h2>&#128161; Creative &amp; Decision Tools</h2>
+            <p>Tools for ideation and technical decision-making.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">/brainstorm "topic"</code>
+                    <span class="desc">Generate diverse ideas using 6 agents: Innovator, Connector, Simplifier, User Advocate, Hacker, Futurist</span>
+                    <span class="category category-creative">Creative</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/tech-debate "question"</code>
+                    <span class="desc">Structured debate with 5 agents: Pragmatist, Purist, Skeptic, Operator, Synthesizer</span>
+                    <span class="category category-creative">Creative</span>
+                </div>
+            </div>
+
+            <h3>Brainstorm Agents</h3>
+            <div class="agent-grid">
+                <div class="agent-card" style="border-left-color: #ffa500;">
+                    <h4><span class="icon">&#128161;</span> Innovator</h4>
+                    <p>Blue sky - no constraints, moonshots</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #ffa500;">
+                    <h4><span class="icon">&#128260;</span> Connector</h4>
+                    <p>Patterns from other domains</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #ffa500;">
+                    <h4><span class="icon">&#128300;</span> Simplifier</h4>
+                    <p>First principles, minimal approach</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #ffa500;">
+                    <h4><span class="icon">&#128100;</span> User Advocate</h4>
+                    <p>User pain points and delight</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #ffa500;">
+                    <h4><span class="icon">&#9889;</span> Hacker</h4>
+                    <p>Quick wins, 80/20 solutions</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #ffa500;">
+                    <h4><span class="icon">&#128302;</span> Futurist</h4>
+                    <p>10x thinking, emerging tech</p>
+                </div>
+            </div>
+
+            <h3>Tech Debate Agents</h3>
+            <div class="agent-grid">
+                <div class="agent-card" style="border-left-color: #f85149;">
+                    <h4><span class="icon">&#128640;</span> Pragmatist</h4>
+                    <p>Ship it - what gets us live?</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #f85149;">
+                    <h4><span class="icon">&#9878;&#65039;</span> Purist</h4>
+                    <p>Do it right - maintainability</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #f85149;">
+                    <h4><span class="icon">&#128269;</span> Skeptic</h4>
+                    <p>Poke holes - find blind spots</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #f85149;">
+                    <h4><span class="icon">&#128295;</span> Operator</h4>
+                    <p>Run it - debugging at 3am</p>
+                </div>
+                <div class="agent-card" style="border-left-color: #f85149;">
+                    <h4><span class="icon">&#128203;</span> Synthesizer</h4>
+                    <p>Find the path forward</p>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <h4>&#128161; When to Use Each</h4>
+                <p><strong>/brainstorm</strong> - Ideation: "Features for v2", "Ways to improve onboarding"<br>
+                <strong>/tech-debate</strong> - Decisions: "React vs Vue?", "Microservices vs monolith?"</p>
+            </div>
+        </section>
+
+        <!-- Epic & PRD Management -->
+        <section class="card engineer">
+            <h2>&#128203; Epic &amp; PRD Management</h2>
+            <p>Manage complex multi-task work with dependency tracking and branch chains.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">/jira-epic PPT-123</code>
+                    <span class="desc">Fetch Jira epic, analyze child issues, infer dependencies, create branch chain</span>
+                    <span class="category category-workflow">Jira Mode</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/jira-epic [PRD text]</code>
+                    <span class="desc">Parse PRD document into discrete tasks with layer-based dependencies</span>
+                    <span class="category category-workflow">PRD Mode</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/jira-epic docs/feature.md</code>
+                    <span class="desc">Read PRD from file and break into tasks</span>
+                    <span class="category category-workflow">PRD Mode</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/work-ticket --epic PPT-123</code>
+                    <span class="desc">Resume work on next ready task from an epic</span>
+                    <span class="category category-workflow">Resume</span>
+                </div>
+            </div>
+
+            <h3>Branch Chain Model</h3>
+            <p>Each task's PR targets its blocker's branch, creating a chain:</p>
+            <div class="code-block">
+                <span class="comment"># Epic: PROJ-100 (User Authentication)</span><br>
+                <span class="command">PROJ-1234</span> <span class="comment">(no blockers)     → PR to: dev</span><br>
+                <span class="command">PROJ-1235</span> <span class="comment">(blocked by 1234) → PR to: PROJ-1234</span><br>
+                <span class="command">PROJ-1236</span> <span class="comment">(blocked by 1235) → PR to: PROJ-1235</span>
+            </div>
+
+            <h3>Layer-Based Dependencies</h3>
+            <p>Tasks are automatically organized by layer when no explicit Jira links exist:</p>
+            <div class="agent-grid">
+                <div class="agent-card" style="border-left-color: var(--accent-blue);">
+                    <h4>Layer 1 - Schema</h4>
+                    <p>Database, models, migrations, types</p>
+                </div>
+                <div class="agent-card" style="border-left-color: var(--accent-blue);">
+                    <h4>Layer 2 - Service</h4>
+                    <p>Core services, integrations, modules</p>
+                </div>
+                <div class="agent-card" style="border-left-color: var(--accent-blue);">
+                    <h4>Layer 3 - Logic</h4>
+                    <p>Business logic, handlers, processing</p>
+                </div>
+                <div class="agent-card" style="border-left-color: var(--accent-blue);">
+                    <h4>Layer 4 - API</h4>
+                    <p>Endpoints, controllers, routes</p>
+                </div>
+                <div class="agent-card" style="border-left-color: var(--accent-blue);">
+                    <h4>Layer 5 - UI</h4>
+                    <p>Components, screens, views</p>
+                </div>
+                <div class="agent-card" style="border-left-color: var(--accent-blue);">
+                    <h4>Layer 6-8</h4>
+                    <p>Testing, documentation, deployment</p>
+                </div>
+            </div>
+
+            <h3>Generated Files</h3>
+            <div class="code-block">
+                <span class="comment"># Epic context (small, just dependencies)</span><br>
+                <span class="command">.ai-contexts/epic-PPT-6691.yaml</span><br><br>
+                <span class="comment"># Individual task files (full Jira details)</span><br>
+                <span class="command">.ai-contexts/tasks/PPT-6692.yaml</span><br>
+                <span class="command">.ai-contexts/tasks/PPT-6693.yaml</span><br>
+                <span class="comment">...</span>
+            </div>
+
+            <div class="tip-box">
+                <h4>&#128161; Resuming Epic Work</h4>
+                <p>In a new conversation, just run <code>/work-ticket --epic PPT-123</code>. The agent reads the context files and picks up where you left off - no need to re-fetch from Jira!</p>
+            </div>
+        </section>
+
+        <!-- Project Management -->
+        <section class="card engineer">
+            <h2>&#128193; Project Management</h2>
+            <p>Add projects to the workspace - supports local paths, GitHub URLs, or creating new projects.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">/add-project ~/code/my-app</code>
+                    <span class="desc">Add existing local project (creates symlink automatically)</span>
+                    <span class="category category-project">Project</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/add-project https://github.com/user/repo</code>
+                    <span class="desc">Clone from GitHub</span>
+                    <span class="category category-project">Project</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/add-project my-new-app</code>
+                    <span class="desc">Create new empty project</span>
+                    <span class="category category-project">Project</span>
+                </div>
+            </div>
+
+            <h3>Examples</h3>
+            <div class="code-block">
+                <span class="comment"># Add existing project (symlinked, git platform auto-detected)</span><br>
+                <span class="command">./scripts/add-project ~/code/my-react-app</span><br>
+                <span class="command">./scripts/add-project /path/to/project custom-name</span><br><br>
+                <span class="comment"># Clone from GitHub (auto-detects: github)</span><br>
+                <span class="command">./scripts/add-project https://github.com/user/repo</span><br>
+                <span class="command">./scripts/add-project git@github.com:user/repo.git</span><br><br>
+                <span class="comment"># Clone from Bitbucket (auto-detects: bitbucket + workspace)</span><br>
+                <span class="command">./scripts/add-project https://bitbucket.org/mycompany/repo</span><br><br>
+                <span class="comment"># Clone from GitLab</span><br>
+                <span class="command">./scripts/add-project https://gitlab.com/user/repo</span><br><br>
+                <span class="comment"># Create new project</span><br>
+                <span class="command">./scripts/add-project my-new-app</span><br><br>
+                <span class="comment"># Verify</span><br>
+                <span class="command">./scripts/list-projects</span>
+            </div>
+
+            <div class="tip-box">
+                <h4>&#128161; Per-Project Git Platform</h4>
+                <p><strong>Git platform is auto-detected</strong> from the remote URL and saved to <code>.ai-contexts/&lt;project&gt;.yaml</code>. Different projects can use different platforms - work on Bitbucket in the morning, GitHub in the afternoon!</p>
+            </div>
+
+            <div class="tip-box">
+                <h4>&#128279; Auto-Symlink</h4>
+                <p>Local paths are <strong>automatically symlinked</strong> - your original files stay in place and changes sync both ways. Use <code>--copy</code> flag if you need a separate copy instead.</p>
+            </div>
+        </section>
+
+        <!-- Usage Examples -->
+        <section class="card engineer">
+            <h2>&#128214; Examples</h2>
+
+            <div class="example-grid">
+                <div class="example-card">
+                    <h4>Bug fix</h4>
+                    <div class="input">
+                        <span style="color: var(--accent-yellow);">/work-ticket "Fix login redirect bug"</span>
+                    </div>
+                    <div class="output">
+                        <strong>Detected:</strong> Quick Flow<br>
+                        Developer &rarr; Tester &rarr; Deployer
+                    </div>
+                </div>
+
+                <div class="example-card">
+                    <h4>New feature</h4>
+                    <div class="input">
+                        <span style="color: var(--accent-yellow);">/work-ticket "Add dark mode toggle"</span>
+                    </div>
+                    <div class="output">
+                        <strong>Detected:</strong> Full BMAD<br>
+                        Architect &rarr; Designer &rarr; Developer &rarr; ...
+                    </div>
+                </div>
+
+                <div class="example-card">
+                    <h4>Brainstorm session</h4>
+                    <div class="input">
+                        <span style="color: var(--accent-yellow);">/brainstorm "features for mobile app v2"</span>
+                    </div>
+                    <div class="output">
+                        6 agents generate ideas &rarr; Combine &rarr; Cluster into Quick Wins, Big Bets
+                    </div>
+                </div>
+
+                <div class="example-card">
+                    <h4>Technical decision</h4>
+                    <div class="input">
+                        <span style="color: var(--accent-yellow);">/tech-debate "GraphQL vs REST for our API"</span>
+                    </div>
+                    <div class="output">
+                        Debate &rarr; Rebuttals &rarr; Synthesizer provides decision framework
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== AI/SYSTEM COMMANDS (Collapsible) ==================== -->
+        <details class="collapsible-section" style="margin-top: 3rem;">
+            <summary class="section-divider-clickable">
+                <span>&#129302; AI / SYSTEM COMMANDS</span>
+                <span class="collapse-hint">(click to expand)</span>
+            </summary>
+
+            <div class="tip-box warning" style="margin: 1.5rem 0;">
+                <h4>&#129302; Managed by AI</h4>
+                <p>These commands are used by the AI to manage workflow state and save context tokens. You typically don't need to run these manually - the AI handles them automatically during workflows.</p>
+            </div>
+
+        <!-- Status & Navigation -->
+        <section class="card ai-system">
+            <h2>&#128203; Status &amp; Navigation</h2>
+            <p>Commands the AI uses to track and display progress.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <code class="cmd">/progress</code>
+                    <span class="desc">View current workflow status, phase, and completed agents</span>
+                    <span class="category category-ai">AI-Managed</span>
+                </div>
+                <div class="command-card">
+                    <code class="cmd">/agent [name]</code>
+                    <span class="desc">Switch to a specific agent (e.g., /agent developer)</span>
+                    <span class="category category-ai">AI-Managed</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Workspace Scripts -->
+        <section class="card ai-system">
+            <h2>&#128295; Workspace Scripts</h2>
+            <p>Shell scripts the AI uses for state management and context caching.</p>
+
+            <h3>Project Discovery</h3>
+            <table class="script-table">
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Command</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>list-projects</strong></td>
+                        <td><code>./scripts/list-projects</code></td>
+                        <td>Discover available projects (AI runs this first)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>add-project</strong></td>
+                        <td><code>./scripts/add-project &lt;path-or-url&gt;</code></td>
+                        <td>Create new project folder</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Context Caching (Token Savings)</h3>
+            <table class="script-table">
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Command</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>generate-context</strong></td>
+                        <td><code>./scripts/generate-context &lt;project&gt;</code></td>
+                        <td>Cache project analysis in .ai-context.yaml</td>
+                    </tr>
+                    <tr>
+                        <td><strong>validate-context</strong></td>
+                        <td><code>./scripts/validate-context &lt;project&gt;</code></td>
+                        <td>Check if cached context is still valid</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Session Management</h3>
+            <table class="script-table">
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Command</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>start-session</strong></td>
+                        <td><code>./scripts/start-session &lt;workflow&gt; "&lt;task&gt;" [project]</code></td>
+                        <td>Initialize workflow session state</td>
+                    </tr>
+                    <tr>
+                        <td><strong>update-session</strong></td>
+                        <td><code>./scripts/update-session &lt;action&gt; [args]</code></td>
+                        <td>Update session during workflow</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Session Update Actions</h3>
+            <div class="code-block">
+                <span class="comment"># Move to next agent in sequence</span><br>
+                <span class="command">./scripts/update-session next-agent</span><br><br>
+                <span class="comment"># Mark agent as completed</span><br>
+                <span class="command">./scripts/update-session complete-agent "architect"</span><br><br>
+                <span class="comment"># Track output files</span><br>
+                <span class="command">./scripts/update-session add-output "src/components/Button.tsx"</span><br><br>
+                <span class="comment"># View current state</span><br>
+                <span class="command">./scripts/update-session show</span>
+            </div>
+        </section>
+
+        <!-- All Agents Reference -->
+        <section class="card ai-system">
+            <h2>&#129302; All Workflow Agents</h2>
+            <p>The AI activates these agents automatically based on the workflow.</p>
+
+            <div class="agent-grid">
+                <div class="agent-card">
+                    <h4><span class="icon">&#128269;</span> Analyst</h4>
+                    <p>Research and requirements</p>
+                    <span class="phase">Phase 1 - Analysis</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#128202;</span> Product Owner</h4>
+                    <p>Vision and prioritization</p>
+                    <span class="phase">Phase 1 - Analysis</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#127959;</span> Architect</h4>
+                    <p>System design</p>
+                    <span class="phase">Phase 2 - Planning</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#127912;</span> Designer</h4>
+                    <p>UI/UX specifications</p>
+                    <span class="phase">Phase 2 - Planning</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#128221;</span> Tech Writer</h4>
+                    <p>Documentation planning</p>
+                    <span class="phase">Phase 2 - Planning</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#128187;</span> Developer</h4>
+                    <p>Code implementation</p>
+                    <span class="phase">Phase 3 - Implementation</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#129514;</span> Tester</h4>
+                    <p>Testing and validation</p>
+                    <span class="phase">Phase 3 - Implementation</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#128065;</span> Reviewer</h4>
+                    <p>Code review</p>
+                    <span class="phase">Phase 3 - Implementation</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#128640;</span> Deployer</h4>
+                    <p>Deployment and PRs</p>
+                    <span class="phase">Phase 4 - Delivery</span>
+                </div>
+                <div class="agent-card">
+                    <h4><span class="icon">&#128218;</span> Documenter</h4>
+                    <p>Final documentation</p>
+                    <span class="phase">Phase 4 - Delivery</span>
+                </div>
+            </div>
+        </section>
+        </details>
+    </div>
+
+    <footer>
+        <p>Lane - <a href="GETTING_STARTED.html">Getting Started</a> | <a href="USAGE_GUIDE.html">Usage Guide</a> | <a href="VALIDATION_PROCESS.html">Validation</a></p>
+    </footer>
+</body>
+</html>

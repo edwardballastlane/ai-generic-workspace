@@ -1,0 +1,5 @@
+{"type":"user","message":{"content":"check this PROJ-123 ticket and refactor login"},"isMeta":false}
+{"type":"assistant","message":{"model":"claude-opus-4-7","usage":{"input_tokens":100,"cache_creation_input_tokens":50,"cache_read_input_tokens":2000,"output_tokens":80}}}
+{"type":"user","message":{"content":"<system-reminder>ignored meta</system-reminder>"},"isMeta":true}
+{"type":"user","message":{"content":"now optimize the query"}}
+{"type":"assistant","message":{"model":"claude-opus-4-7","usage":{"input_tokens":200,"cache_creation_input_tokens":0,"cache_read_input_tokens":3000,"output_tokens":150}}}

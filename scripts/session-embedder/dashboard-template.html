@@ -1,0 +1,2016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Improvement Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    /* -- Header --------------------------------------------------------- */
+    .header {
+      padding: 32px 32px 0;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #f97316, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+    }
+
+    .header .subtitle {
+      font-size: 0.9rem;
+      color: #8b949e;
+    }
+
+    /* -- Tab Bar -------------------------------------------------------- */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      padding: 12px 32px;
+      background: #0d1117;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .tab-btn {
+      padding: 8px 20px;
+      border: 1px solid #30363d;
+      background: transparent;
+      color: #8b949e;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .tab-btn:hover {
+      background: #161b22;
+      color: #e6edf3;
+    }
+
+    .tab-btn.active {
+      background: #f97316;
+      border-color: #f97316;
+      color: #000;
+      font-weight: 600;
+    }
+
+    /* -- Tab Content ---------------------------------------------------- */
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* -- Key Metrics Bar ------------------------------------------------ */
+    .metrics-bar {
+      display: flex;
+      gap: 24px;
+      padding: 20px 32px;
+      flex-wrap: wrap;
+    }
+
+    .metric {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 16px 24px;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #f0f6fc;
+      line-height: 1.1;
+    }
+
+    .metric-label {
+      font-size: 0.78rem;
+      color: #6e7681;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+
+    /* -- Controls ------------------------------------------------------- */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 32px 12px;
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      font-size: 0.82rem;
+      color: #8b949e;
+      margin-right: 4px;
+    }
+
+    .btn {
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: #30363d;
+      border-color: #484f58;
+    }
+
+    .btn.active {
+      background: #f97316;
+      border-color: #f97316;
+      color: #000;
+      font-weight: 600;
+    }
+
+    .btn-refresh {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-refresh svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* -- Dashboard Grid ------------------------------------------------- */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      padding: 0 32px 32px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card.wide { grid-column: span 2; }
+    .card.full { grid-column: span 3; }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin-bottom: 4px;
+    }
+
+    .card-subtitle {
+      font-size: 0.78rem;
+      color: #6e7681;
+      margin-bottom: 12px;
+    }
+
+    /* "snapshot" freshness badge on sections served from the committed
+       dashboard-data.json (Qdrant/transcripts unavailable, e.g. in CI). */
+    .snapshot-badge {
+      display: none;
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #fbbf24;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 4px;
+      padding: 1px 5px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .snapshot-badge.show { display: inline-block; }
+
+    .card-helper {
+      font-size: 0.78rem;
+      color: #8b949e;
+      background: rgba(148, 163, 184, 0.08);
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: -4px 0 12px 0;
+      line-height: 1.4;
+    }
+
+    .chart-container {
+      flex: 1;
+      min-height: 0;
+    }
+
+    .no-data {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #484f58;
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+
+    /* -- Source Breakdown ------------------------------------------------ */
+    .source-breakdown {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .source-item {
+      font-size: 0.75rem;
+      color: #8b949e;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 999px;
+      padding: 3px 10px;
+      white-space: nowrap;
+    }
+
+    .source-item strong {
+      color: #e6edf3;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
+    /* -- Annotation boxes ----------------------------------------------- */
+    .annotation-box {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .annotation {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+    }
+
+    .annotation .ann-value {
+      font-weight: 600;
+      color: #f0f6fc;
+      font-size: 1.1rem;
+    }
+
+    .annotation .ann-label {
+      color: #6e7681;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+    }
+
+    /* -- Side-by-side charts -------------------------------------------- */
+    .dual-chart {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .dual-chart .sub-chart {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dual-chart .sub-chart-title {
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .dual-chart .sub-chart-container {
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* -- Knowledge Map -------------------------------------------------- */
+    .km-controls {
+      padding: 16px 32px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .km-filter-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .km-filter-btn {
+      padding: 6px 14px;
+      border: 1px solid #30363d;
+      background: transparent;
+      color: #8b949e;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .km-filter-btn:hover {
+      background: #30363d;
+      color: #f0f6fc;
+    }
+
+    .km-filter-btn.active {
+      background: #f97316;
+      border-color: #f97316;
+      color: white;
+    }
+
+    .km-search-box {
+      flex: 1;
+      max-width: 300px;
+    }
+
+    .km-search-box input {
+      width: 100%;
+      padding: 8px 14px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #f0f6fc;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+
+    .km-search-box input:focus {
+      outline: none;
+      border-color: #f97316;
+    }
+
+    .km-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .km-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: #8b949e;
+    }
+
+    .km-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .km-main {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 0;
+      height: calc(100vh - 240px);
+      min-height: 500px;
+    }
+
+    .km-cloud-container {
+      padding: 32px;
+      overflow: auto;
+    }
+
+    .km-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .km-word {
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .km-word:hover {
+      transform: scale(1.1);
+      background: rgba(255,255,255,0.1);
+    }
+
+    .km-word.selected {
+      background: rgba(59, 130, 246, 0.3);
+      outline: 2px solid #f97316;
+    }
+
+    .km-sidebar {
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .km-sidebar h2 {
+      font-size: 1rem;
+      color: #8b949e;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .km-term-detail {
+      display: none;
+    }
+
+    .km-term-detail.active {
+      display: block;
+    }
+
+    .km-term-name {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .km-term-meta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .km-term-meta span {
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+
+    .km-term-type {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .km-context-list {
+      margin-top: 16px;
+    }
+
+    .km-context-item {
+      background: #0d1117;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      color: #c9d1d9;
+      line-height: 1.5;
+    }
+
+    .km-top-terms {
+      margin-top: 24px;
+    }
+
+    .km-top-term-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid #30363d;
+      cursor: pointer;
+    }
+
+    .km-top-term-item:last-child {
+      border-bottom: none;
+    }
+
+    .km-top-term-item:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .km-top-term-name {
+      flex: 1;
+      color: #f0f6fc;
+    }
+
+    .km-top-term-count {
+      color: #6e7681;
+      font-size: 0.85rem;
+    }
+
+    .km-top-term-bar {
+      width: 60px;
+      height: 4px;
+      background: #30363d;
+      border-radius: 2px;
+      margin-left: 12px;
+      overflow: hidden;
+    }
+
+    .km-top-term-bar-fill {
+      height: 100%;
+      background: #f97316;
+      border-radius: 2px;
+    }
+
+    /* -- Loading -------------------------------------------------------- */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: #0d1117;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.3s;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #30363d;
+      border-top-color: #fb923c;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* -- Error banner --------------------------------------------------- */
+    .error-banner {
+      background: #7f1d1d;
+      border: 1px solid #991b1b;
+      color: #fca5a5;
+      padding: 12px 32px;
+      font-size: 0.88rem;
+      display: none;
+    }
+
+    .error-banner.visible { display: block; }
+
+    /* -- Responsive ----------------------------------------------------- */
+    @media (max-width: 1200px) {
+      .dashboard { grid-template-columns: repeat(2, 1fr); }
+      .card.wide { grid-column: span 2; }
+      .card.full { grid-column: span 2; }
+      .km-main { grid-template-columns: 1fr 280px; }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard { grid-template-columns: 1fr; }
+      .card.wide, .card.full { grid-column: span 1; }
+      .dual-chart { grid-template-columns: 1fr; }
+      .metrics-bar { flex-direction: column; }
+      .km-main { grid-template-columns: 1fr; height: auto; }
+      .km-sidebar { border-left: none; border-top: 1px solid #30363d; }
+    }
+  </style>
+
+
+
+
+</head>
+<body>
+  <div class="loading-overlay" id="loading">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="error-banner" id="error-banner"></div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Self-Improvement Dashboard</h1>
+    <div class="subtitle" id="subtitle">Loading...</div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn" data-tab="team" onclick="switchTab('team')">Team Rules</button>
+    <button class="tab-btn" data-tab="rules" onclick="switchTab('rules')">Rules &amp; Learning</button>
+    <button class="tab-btn" data-tab="knowledge" onclick="switchTab('knowledge')">Knowledge Map</button>
+    <button class="tab-btn" data-tab="authorship" onclick="switchTab('authorship')">Authorship</button>
+  </div>
+
+  <!-- ================================================================
+       TAB 1: Overview
+       ================================================================ -->
+  <div class="tab-content active" id="tab-overview">
+    <!-- Key Metrics Bar -->
+    <div class="metrics-bar">
+      <div class="metric">
+        <div class="metric-value" id="m-active-rules">--</div>
+        <div class="metric-label">Active Rules</div>
+        <div class="card-helper" style="margin-top:8px;margin-bottom:0;">Rules automatically learned from sessions that guide Claude's behavior</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-value-events">--</div>
+        <div class="metric-label">Value Events</div>
+        <div class="card-helper" style="margin-top:8px;margin-bottom:0;">Rule injections from inject-rules plus rule lifecycle and reinforcement events from the audit trail</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-sessions">--</div>
+        <div class="metric-label">Sessions Embedded <span class="snapshot-badge" id="snap-sessions"></span></div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-reflections">--</div>
+        <div class="metric-label">Reflections <span class="snapshot-badge" id="snap-reflections"></span></div>
+        <div class="card-helper" style="margin-top:8px;margin-bottom:0;">Lessons learned from detected failure patterns in past sessions</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-knowledge-terms">--</div>
+        <div class="metric-label">Knowledge Terms <span class="snapshot-badge" id="snap-topics"></span></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls" id="controls-overview">
+      <label>Time range:</label>
+      <button class="btn" data-range="7" onclick="setRange(7)">7d</button>
+      <button class="btn" data-range="30" onclick="setRange(30)">30d</button>
+      <button class="btn" data-range="90" onclick="setRange(90)">90d</button>
+      <button class="btn active" data-range="0" onclick="setRange(0)">All</button>
+      <button class="btn btn-refresh" onclick="refresh()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    <!-- Overview Grid -->
+    <div class="dashboard" id="grid-overview">
+      <!-- 1. Rule Lifecycle -->
+      <div class="card" id="card-lifecycle">
+        <div class="card-title">Rule Lifecycle</div>
+        <div class="card-subtitle">Funnel from total to proven rules</div>
+        <div class="card-helper">Rules progress: Created &rarr; Active &rarr; Reinforced (matched in new sessions) &rarr; Proven (10+ matches)</div>
+        <div class="chart-container" id="chart-lifecycle"></div>
+        <div class="source-breakdown" id="source-breakdown"></div>
+      </div>
+
+      <!-- 2. Value Events Over Time (wide) -->
+      <div class="card wide" id="card-value-events">
+        <div class="card-title">Value Events Over Time</div>
+        <div class="card-subtitle">Daily event counts by type</div>
+        <div class="chart-container" id="chart-value-events"></div>
+      </div>
+
+      <!-- 3. Sessions Embedded Over Time -->
+      <div class="card" id="card-sessions-time">
+        <div class="card-title">Sessions Embedded Over Time</div>
+        <div class="card-subtitle">Sessions embedded per week</div>
+        <div class="chart-container" id="chart-sessions-time"></div>
+      </div>
+
+      <!-- 4. Rule-Match Analytics (formerly Search Analytics) -->
+      <div class="card" id="card-search">
+        <div class="card-title">Rule-Match Analytics</div>
+        <div class="card-subtitle">Inject-rules Jaccard match quality per prompt</div>
+        <div class="annotation-box" id="search-annotations"></div>
+        <div class="chart-container" id="chart-search"></div>
+      </div>
+
+      <!-- 5. Quality Score Distribution -->
+      <div class="card" id="card-quality">
+        <div class="card-title">Quality Score Distribution</div>
+        <div class="card-subtitle">Session chunk quality buckets</div>
+        <div class="card-helper">Content ratings: 1-2 = noise, 3-4 = routine, 5-6 = useful, 7-8 = reusable pattern, 9-10 = novel solution</div>
+        <div class="chart-container" id="chart-quality"></div>
+      </div>
+
+      <!-- 6. Pipeline Activity Timeline -->
+      <div class="card full" id="card-pipeline-activity">
+        <div class="card-title">Pipeline Activity</div>
+        <div class="card-helper">Recent self-improvement actions: rule additions, retirements, and dedup events from the last 30 days.</div>
+        <div id="pipeline-activity-content" style="overflow-y:auto; max-height:600px; flex:1;">
+          <div class="no-data">No recent pipeline activity</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB: Team Rules
+       ================================================================ -->
+  <div class="tab-content" id="tab-team">
+    <div class="metrics-bar">
+      <div class="metric">
+        <div class="metric-value" id="m-team-total">--</div>
+        <div class="metric-label">Team Rules</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-personal-total">--</div>
+        <div class="metric-label">Personal Rules</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-team-categories">--</div>
+        <div class="metric-label">Team Categories</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="m-personal-categories">--</div>
+        <div class="metric-label">Personal Categories</div>
+      </div>
+    </div>
+    <div class="grid-2col">
+      <div class="card"><div class="card-title">Team vs Personal (Active Rules)</div><div id="chart-scope-pie" style="height:320px"></div></div>
+      <div class="card"><div class="card-title">Rules by Category (Team vs Personal)</div><div id="chart-team-categories" style="height:320px"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Team Rules (shared via git — all developers get these)</div>
+      <div id="team-rules-table" style="max-height:500px;overflow-y:auto"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Personal Rules (local only — not shared with team)</div>
+      <div id="personal-rules-table" style="max-height:500px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB 2: Rules & Learning
+       ================================================================ -->
+  <div class="tab-content" id="tab-rules">
+    <!-- Controls -->
+    <div class="controls" id="controls-rules">
+      <label>Time range:</label>
+      <button class="btn" data-range="7" onclick="setRange(7)">7d</button>
+      <button class="btn" data-range="30" onclick="setRange(30)">30d</button>
+      <button class="btn" data-range="90" onclick="setRange(90)">90d</button>
+      <button class="btn active" data-range="0" onclick="setRange(0)">All</button>
+      <button class="btn btn-refresh" onclick="refresh()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    <!-- Rules Grid -->
+    <div class="dashboard" id="grid-rules">
+      <!-- 1. Rule Category Distribution -->
+      <div class="card" id="card-categories" style="min-height:500px;">
+        <div class="card-title">Rule Category Distribution</div>
+        <div class="card-subtitle">Rules by category</div>
+        <div class="card-helper">Active rules grouped by domain (file-editing, planning = behavioral; react, typescript = tech-specific)</div>
+        <div class="chart-container" id="chart-categories"></div>
+      </div>
+
+      <!-- 2. Top Rules by Usage (wide) -->
+      <div class="card wide" id="card-top-rules">
+        <div class="card-title">Top Rules by Usage</div>
+        <div class="card-subtitle">Most injected rules</div>
+        <div class="card-helper">Rules most frequently injected into Claude sessions via the inject-rules hook</div>
+        <div class="chart-container" id="chart-top-rules"></div>
+      </div>
+
+      <!-- 2b. Top Rules Full Detail (full width) -->
+      <div class="card full" id="card-top-rules-detail">
+        <div class="card-title">Top Rules &mdash; Full Detail</div>
+        <div class="card-helper">The 15 most-reinforced rules with their full text. Higher reinforcement means the rule matches more new sessions.</div>
+        <div id="top-rules-detail-content" style="overflow-y:auto; max-height:400px; flex:1;">
+          <div class="no-data">No rule data available</div>
+        </div>
+      </div>
+
+      <!-- 2c. Never-Used Rules (full width) -->
+      <div class="card full" id="card-never-used-rules">
+        <div class="card-title" id="never-used-rules-title">Never-Used Rules</div>
+        <div class="card-helper">These rules haven't been matched in any new sessions yet. Review or retire rules that stay here for 60+ days.</div>
+        <div id="never-used-rules-content" style="overflow-y:auto; max-height:300px; flex:1;">
+          <div class="no-data">No never-used rules</div>
+        </div>
+      </div>
+
+      <!-- 3. Reflection Analysis -->
+      <div class="card" id="card-reflections">
+        <div class="card-title">Reflection Analysis</div>
+        <div class="card-subtitle">Failure types breakdown</div>
+        <div class="card-helper">Failure types: retry-loop = repeated errors, backtracking = same file edited 3+ times</div>
+        <div class="chart-container" id="chart-reflections"></div>
+      </div>
+
+      <!-- 3b. Recent Reflections (wide) -->
+      <div class="card wide" id="card-recent-reflections">
+        <div class="card-title">Recent Reflections</div>
+        <div class="card-helper">Recent lessons learned from detected failures. Each reflection captures what went wrong and a prevention rule to avoid it.</div>
+        <div id="recent-reflections-content" style="overflow-y:auto; max-height:400px; flex:1;">
+          <div class="no-data">No reflection data available</div>
+        </div>
+      </div>
+
+      <!-- 4. Rule Timeline (wide) -->
+      <div class="card wide" id="card-timeline">
+        <div class="card-title">Rule Timeline</div>
+        <div class="card-subtitle">Creation velocity &amp; reinforcement distribution</div>
+        <div class="dual-chart">
+          <div class="sub-chart">
+            <div class="sub-chart-title">Rules Created Per Week</div>
+            <div class="sub-chart-container" id="chart-created-over-time"></div>
+          </div>
+          <div class="sub-chart">
+            <div class="sub-chart-title">Reinforcement Distribution</div>
+            <div class="sub-chart-container" id="chart-reinforcement-dist"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB 3: Knowledge Map
+       ================================================================ -->
+  <div class="tab-content" id="tab-knowledge">
+    <div class="km-controls" id="km-controls">
+      <div class="km-filter-group">
+        <button class="km-filter-btn active" data-filter="all">All</button>
+        <button class="km-filter-btn" data-filter="tool">Tools</button>
+        <button class="km-filter-btn" data-filter="concept">Concepts</button>
+        <button class="km-filter-btn" data-filter="action">Actions</button>
+        <button class="km-filter-btn" data-filter="pattern">Patterns</button>
+        <button class="km-filter-btn" data-filter="search-query">Searches</button>
+      </div>
+      <div class="km-search-box">
+        <input type="text" id="km-search" placeholder="Search terms..." />
+      </div>
+      <div class="km-legend">
+        <div class="km-legend-item"><span class="km-legend-dot" style="background: #f97316"></span>Tool</div>
+        <div class="km-legend-item"><span class="km-legend-dot" style="background: #10b981"></span>Concept</div>
+        <div class="km-legend-item"><span class="km-legend-dot" style="background: #ec4899"></span>Action</div>
+        <div class="km-legend-item"><span class="km-legend-dot" style="background: #14b8a6"></span>Pattern</div>
+        <div class="km-legend-item"><span class="km-legend-dot" style="background: #f97316"></span>Search</div>
+      </div>
+    </div>
+
+    <div class="km-main">
+      <div class="km-cloud-container">
+        <div class="km-cloud" id="km-cloud"></div>
+      </div>
+
+      <div class="km-sidebar">
+        <div id="km-default-view">
+          <h2>Top Terms</h2>
+          <div class="km-top-terms" id="km-top-terms"></div>
+        </div>
+        <div class="km-term-detail" id="km-term-detail">
+          <h2>Term Details</h2>
+          <div class="km-term-name" id="km-detail-name"></div>
+          <div class="km-term-meta">
+            <span id="km-detail-type" class="km-term-type"></span>
+            <span id="km-detail-count"></span>
+            <span id="km-detail-sessions"></span>
+          </div>
+          <div class="km-context-list" id="km-detail-contexts"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       TAB 5: Authorship — who originated and promoted rules
+       ================================================================ -->
+  <div class="tab-content" id="tab-authorship">
+    <div class="chart-card" style="margin-bottom:24px">
+      <h2 class="chart-title">Contributors</h2>
+      <div class="card-helper">Rules authored = original creator (from git history). Rules promoted = moved this rule from personal to team via <code>rules:promote-apply</code>.</div>
+      <div id="authorship-table"></div>
+    </div>
+    <div class="chart-card">
+      <h2 class="chart-title">Recent Audit Trail (last 30 events)</h2>
+      <div class="card-helper">Every status mutation captured: created → activated/staged, reinforced +N, retired (stale or duplicate), promoted-to-team.</div>
+      <div id="audit-trail"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ================================================================
+       State
+       ================================================================ */
+    let DATA = null;
+    let currentRange = 0;
+    let currentTab = 'overview';
+
+    // Knowledge Map state
+    let kmFilter = 'all';
+    let kmSearchQuery = '';
+    let kmSelectedTerm = null;
+
+    /* ================================================================
+       Topic type colors
+       ================================================================ */
+    const topicColors = {
+      tool: '#f97316',
+      concept: '#10b981',
+      action: '#ec4899',
+      pattern: '#14b8a6',
+      'search-query': '#f97316',
+    };
+
+    /* ================================================================
+       Dark Plotly layout defaults
+       ================================================================ */
+    const FONT_STACK = '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif';
+
+    function darkLayout(overrides) {
+      return Object.assign({
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: 'transparent',
+        font: { color: '#e6edf3', family: FONT_STACK, size: 12 },
+        margin: { t: 40, r: 20, b: 40, l: 60 },
+        xaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' } },
+        yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' } },
+        showlegend: false,
+      }, overrides);
+    }
+
+    const PLOTLY_CONFIG = { responsive: true, displayModeBar: false };
+
+    /* ================================================================
+       Helpers
+       ================================================================ */
+    function fmt(n) {
+      return (n != null) ? Number(n).toLocaleString() : '--';
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return 'Unknown';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch { return iso; }
+    }
+
+    function truncate(str, len) {
+      if (!str) return '';
+      return str.length > len ? str.slice(0, len - 1) + '\u2026' : str;
+    }
+
+    function showNoData(containerId) {
+      const el = document.getElementById(containerId);
+      if (el) el.innerHTML = '<div class="no-data">No data available</div>';
+    }
+
+    /** Filter array of objects with a date key to the current time range */
+    function filterByRange(arr, dateKey) {
+      if (!arr || !arr.length || currentRange === 0) return arr;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - currentRange);
+      return arr.filter(item => new Date(item[dateKey]) >= cutoff);
+    }
+
+    /** Filter weekly data (key like "2025-W48") */
+    function filterWeeklyByRange(arr, weekKey) {
+      if (!arr || !arr.length || currentRange === 0) return arr;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - currentRange);
+      return arr.filter(item => {
+        const w = item[weekKey];
+        if (!w) return false;
+        const match = w.match(/^(\d{4})-W(\d{1,2})$/);
+        if (!match) return true;
+        const year = parseInt(match[1], 10);
+        const week = parseInt(match[2], 10);
+        const jan4 = new Date(year, 0, 4);
+        const dayOfWeek = jan4.getDay() || 7;
+        const mondayWeek1 = new Date(jan4);
+        mondayWeek1.setDate(jan4.getDate() - dayOfWeek + 1);
+        const weekDate = new Date(mondayWeek1);
+        weekDate.setDate(weekDate.getDate() + (week - 1) * 7);
+        return weekDate >= cutoff;
+      });
+    }
+
+    /* ================================================================
+       Data Loading
+       ================================================================ */
+    async function loadData() {
+      if (window.DASHBOARD_DATA) return window.DASHBOARD_DATA;
+      const resp = await fetch('dashboard-data.json');
+      if (!resp.ok) throw new Error('Failed to load dashboard-data.json');
+      return resp.json();
+    }
+
+    /* ================================================================
+       Tab Switching
+       ================================================================ */
+    function switchTab(tabName) {
+      currentTab = tabName;
+
+      // Hide all tab content divs
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      // Show the selected one
+      const target = document.getElementById('tab-' + tabName);
+      if (target) target.classList.add('active');
+
+      // Update tab button active states
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+
+      // Re-render the active tab's charts (Plotly needs re-render on show)
+      if (DATA) {
+        if (tabName === 'overview') renderOverviewTab(DATA);
+        else if (tabName === 'team') renderTeamTab(DATA);
+        else if (tabName === 'rules') renderRulesTab(DATA);
+        else if (tabName === 'knowledge') renderKnowledgeMap(DATA);
+        else if (tabName === 'authorship') { renderAuthorshipTab(DATA); renderAuditTrail(DATA); }
+      }
+    }
+
+    /* ================================================================
+       Team Rules Tab
+       ================================================================ */
+    function renderRulesTable(tableEl, rules, accentColor, emptyMsg) {
+      tableEl.textContent = '';
+      if (rules.length === 0) {
+        var p = document.createElement('p');
+        p.style.cssText = 'color:#8b949e;padding:16px';
+        p.textContent = emptyMsg;
+        tableEl.appendChild(p);
+        return;
+      }
+      var table = document.createElement('table');
+      table.style.cssText = 'width:100%;border-collapse:collapse;font-size:0.85rem';
+      var thead = document.createElement('thead');
+      var headerRow = document.createElement('tr');
+      headerRow.style.borderBottom = '1px solid #30363d';
+      ['Score', 'Rule', 'Author', 'Promoted by', 'Categories'].forEach(function(label) {
+        var th = document.createElement('th');
+        th.style.cssText = 'padding:8px;text-align:left';
+        th.textContent = label;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+      var tbody = document.createElement('tbody');
+      rules.forEach(function(r) {
+        var tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #161b22';
+        var tdScore = document.createElement('td');
+        tdScore.style.cssText = 'padding:8px;color:' + accentColor + ';font-weight:600;text-align:center;width:50px';
+        tdScore.textContent = r.count + 'x';
+        var tdRule = document.createElement('td');
+        tdRule.style.cssText = 'padding:8px;color:#e6edf3';
+        tdRule.textContent = r.text;
+        if (r.lastEvent) {
+          tdRule.title = 'last event: ' + r.lastEvent.event + ' by ' + r.lastEvent.actor + ' at ' + r.lastEvent.at + (r.lastEvent.detail ? ' — ' + r.lastEvent.detail : '');
+        }
+        var tdAuthor = document.createElement('td');
+        tdAuthor.style.cssText = 'padding:8px;color:#8b949e;width:120px;font-size:0.78rem';
+        tdAuthor.textContent = r.author ? r.author.name : '—';
+        var tdPromoter = document.createElement('td');
+        tdPromoter.style.cssText = 'padding:8px;color:#8b949e;width:120px;font-size:0.78rem';
+        tdPromoter.textContent = r.promotedBy ? r.promotedBy.name : '—';
+        var tdCats = document.createElement('td');
+        tdCats.style.cssText = 'padding:8px;width:140px';
+        (r.categories || []).forEach(function(c) {
+          var span = document.createElement('span');
+          span.style.cssText = 'background:#161b22;padding:2px 6px;border-radius:4px;font-size:0.75rem;margin-right:4px;display:inline-block;margin-bottom:2px';
+          span.textContent = c;
+          tdCats.appendChild(span);
+        });
+        tr.appendChild(tdScore);
+        tr.appendChild(tdRule);
+        tr.appendChild(tdAuthor);
+        tr.appendChild(tdPromoter);
+        tr.appendChild(tdCats);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableEl.appendChild(table);
+    }
+
+    function renderAuthorshipTab(data) {
+      var byAuthor = data.rules?.byAuthor || {};
+      var entries = Object.entries(byAuthor).sort(function(a, b) {
+        return (b[1].authored + b[1].promoted) - (a[1].authored + a[1].promoted);
+      });
+      var container = document.getElementById('authorship-table');
+      if (!container) return;
+      container.textContent = '';
+      if (entries.length === 0) {
+        var p = document.createElement('p');
+        p.style.cssText = 'color:#8b949e;padding:16px';
+        p.textContent = 'No author data yet. Run npx ts-node scripts/self-improvement/backfill-authors.ts --apply to backfill existing rules.';
+        container.appendChild(p);
+        return;
+      }
+      var table = document.createElement('table');
+      table.style.cssText = 'width:100%;border-collapse:collapse;font-size:0.85rem';
+      var thead = document.createElement('thead');
+      var hr = document.createElement('tr');
+      hr.style.borderBottom = '1px solid #30363d';
+      ['Author', 'Rules authored', 'Rules promoted', 'Total reinforcements'].forEach(function(label) {
+        var th = document.createElement('th');
+        th.style.cssText = 'padding:8px;text-align:left';
+        th.textContent = label;
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      table.appendChild(thead);
+      var tbody = document.createElement('tbody');
+      entries.forEach(function(pair) {
+        var name = pair[0];
+        var stats = pair[1];
+        var tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #161b22';
+        var cells = [
+          { v: name, w: '180px', c: '#e6edf3' },
+          { v: fmt(stats.authored), w: '120px', c: '#f97316' },
+          { v: fmt(stats.promoted), w: '120px', c: '#10b981' },
+          { v: fmt(stats.reinforcements), w: '140px', c: '#f59e0b' },
+        ];
+        cells.forEach(function(c) {
+          var td = document.createElement('td');
+          td.style.cssText = 'padding:8px;width:' + c.w + ';color:' + c.c;
+          td.textContent = c.v;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    function renderAuditTrail(data) {
+      var entries = data.rules?.recentAudit || [];
+      var container = document.getElementById('audit-trail');
+      if (!container) return;
+      container.textContent = '';
+      if (entries.length === 0) {
+        var p = document.createElement('p');
+        p.style.cssText = 'color:#8b949e;padding:16px';
+        p.textContent = 'No audit events recorded yet.';
+        container.appendChild(p);
+        return;
+      }
+      var table = document.createElement('table');
+      table.style.cssText = 'width:100%;border-collapse:collapse;font-size:0.82rem';
+      var thead = document.createElement('thead');
+      var hr = document.createElement('tr');
+      hr.style.borderBottom = '1px solid #30363d';
+      ['When', 'Event', 'Actor', 'Rule', 'Detail'].forEach(function(label) {
+        var th = document.createElement('th');
+        th.style.cssText = 'padding:8px;text-align:left';
+        th.textContent = label;
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      table.appendChild(thead);
+      var tbody = document.createElement('tbody');
+      var eventColors = { created: '#f97316', activated: '#10b981', staged: '#f59e0b', rejected: '#ef4444', retired: '#6e7681', reinforced: '#a855f7', 'promoted-to-team': '#ec4899' };
+      entries.forEach(function(e) {
+        var tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #161b22';
+        var tdAt = document.createElement('td');
+        tdAt.style.cssText = 'padding:8px;color:#8b949e;width:160px;font-size:0.78rem';
+        tdAt.textContent = e.at.slice(0, 19).replace('T', ' ');
+        var tdEvent = document.createElement('td');
+        tdEvent.style.cssText = 'padding:8px;width:120px;color:' + (eventColors[e.event] || '#8b949e') + ';font-weight:600';
+        tdEvent.textContent = e.event;
+        var tdActor = document.createElement('td');
+        tdActor.style.cssText = 'padding:8px;color:#c9d1d9;width:140px';
+        tdActor.textContent = e.actor;
+        var tdRule = document.createElement('td');
+        tdRule.style.cssText = 'padding:8px;color:#e6edf3';
+        tdRule.textContent = e.ruleText.length > 80 ? e.ruleText.slice(0, 80) + '…' : e.ruleText;
+        tdRule.title = e.ruleText + ' (id: ' + e.ruleId + ')';
+        var tdDetail = document.createElement('td');
+        tdDetail.style.cssText = 'padding:8px;color:#8b949e;font-size:0.78rem';
+        tdDetail.textContent = e.detail;
+        tr.appendChild(tdAt);
+        tr.appendChild(tdEvent);
+        tr.appendChild(tdActor);
+        tr.appendChild(tdRule);
+        tr.appendChild(tdDetail);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    function renderTeamTab(data) {
+      var scope = data.rules?.byScope || { team: { total: 0, active: 0, categories: {} }, personal: { total: 0, active: 0, categories: {} } };
+      var teamRules = data.rules?.teamRules || [];
+      var personalRules = data.rules?.personalRules || [];
+
+      // Metrics
+      document.getElementById('m-team-total').textContent = fmt(scope.team?.active || 0);
+      document.getElementById('m-personal-total').textContent = fmt(scope.personal?.active || 0);
+      document.getElementById('m-team-categories').textContent = fmt(Object.keys(scope.team?.categories || {}).length);
+      document.getElementById('m-personal-categories').textContent = fmt(Object.keys(scope.personal?.categories || {}).length);
+
+      // Pie chart: Team vs Personal
+      Plotly.newPlot('chart-scope-pie', [{
+        values: [scope.team?.active || 0, scope.personal?.active || 0],
+        labels: ['Team (shared)', 'Personal (local)'],
+        type: 'pie',
+        hole: 0.5,
+        marker: { colors: ['#f97316', '#6e7681'] },
+        textinfo: 'label+value',
+        textfont: { color: '#e6edf3', size: 13 }
+      }], {
+        paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+        font: { color: '#8b949e' },
+        margin: { t: 20, b: 20, l: 20, r: 20 },
+        showlegend: false
+      }, { responsive: true, displayModeBar: false });
+
+      // Bar chart: categories grouped (team vs personal)
+      var teamCats = scope.team?.categories || {};
+      var personalCats = scope.personal?.categories || {};
+      var catNames = Array.from(new Set(Object.keys(teamCats).concat(Object.keys(personalCats)))).sort();
+      Plotly.newPlot('chart-team-categories', [
+        { x: catNames, y: catNames.map(function(c) { return teamCats[c] || 0; }), type: 'bar', name: 'Team', marker: { color: '#f97316' } },
+        { x: catNames, y: catNames.map(function(c) { return personalCats[c] || 0; }), type: 'bar', name: 'Personal', marker: { color: '#6e7681' } }
+      ], {
+        paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+        font: { color: '#8b949e' },
+        margin: { t: 20, b: 60, l: 40, r: 20 },
+        xaxis: { tickangle: -30 },
+        yaxis: { title: 'Rules' },
+        barmode: 'group',
+        legend: { orientation: 'h', y: -0.35 }
+      }, { responsive: true, displayModeBar: false });
+
+      renderRulesTable(
+        document.getElementById('team-rules-table'),
+        teamRules,
+        '#f97316',
+        'No team rules yet. Run npm run rules:promote-apply to promote personal rules.'
+      );
+      renderRulesTable(
+        document.getElementById('personal-rules-table'),
+        personalRules,
+        '#a3a3a3',
+        'No personal rules yet.'
+      );
+    }
+
+    /* ================================================================
+       Header + Metrics
+       ================================================================ */
+    function renderHeader(data) {
+      // Live-tier data (rules, value-events) is always current. Local-tier
+      // sections (sessions, reflections, topics) may be served from a committed
+      // snapshot when Qdrant/transcripts aren't available (e.g. in CI) — stamp
+      // those with the snapshot date so freshness is never implied falsely.
+      var snap = data.snapshot;
+      var sub = 'Live data: ' + fmtDate(data.generatedAt);
+      if (snap && snap.sections && snap.sections.length) {
+        var asOf = snap.asOf ? fmtDate(snap.asOf) : 'unknown date';
+        sub += ' · ' + snap.sections.join(' / ') + ' from snapshot as of ' + asOf;
+      }
+      document.getElementById('subtitle').textContent = sub;
+
+      var snapSet = (snap && snap.sections) ? snap.sections : [];
+      var asOfShort = (snap && snap.asOf) ? fmtDate(snap.asOf) : '';
+      [['sessions', 'snap-sessions'], ['reflections', 'snap-reflections'], ['topics', 'snap-topics']]
+        .forEach(function(pair) {
+          var el = document.getElementById(pair[1]);
+          if (!el) return;
+          if (snapSet.indexOf(pair[0]) !== -1) {
+            el.textContent = 'snapshot ' + asOfShort;
+            el.title = 'Served from the committed snapshot (Qdrant/transcripts unavailable at build time)';
+            el.classList.add('show');
+          } else {
+            el.classList.remove('show');
+          }
+        });
+
+      document.getElementById('m-active-rules').textContent = fmt(data.rules?.lifecycle?.active);
+      document.getElementById('m-value-events').textContent = fmt(data.valueEvents?.total);
+      document.getElementById('m-sessions').textContent = fmt(data.sessions?.totalEmbedded);
+      document.getElementById('m-reflections').textContent = fmt(data.reflections?.total);
+      document.getElementById('m-knowledge-terms').textContent = fmt(data.topics?.totalTerms);
+    }
+
+    /* ================================================================
+       Overview Charts
+       ================================================================ */
+
+    // 1. Rule Lifecycle (funnel)
+    function renderLifecycle(data) {
+      const lc = data.rules?.lifecycle;
+      const topReinforced = data.rules?.topReinforced || [];
+      const bySource = data.rules?.bySource || {};
+
+      if (!lc) { showNoData('chart-lifecycle'); return; }
+
+      const totalRules = (lc.active || 0) + (lc.retired || 0) + (lc.proposed || 0) + (lc.stale || 0);
+      const active = lc.active || 0;
+      // Use full-dataset counts from generator (not capped topReinforced of 15)
+      const reinforced = lc.reinforcedCount ?? topReinforced.filter(r => r.count >= 5).length;
+      const proven = lc.provenCount ?? topReinforced.filter(r => r.count >= 10).length;
+
+      const labels = ['Total', 'Active', 'Reinforced (5+)', 'Proven (10+)'];
+      const values = [totalRules, active, reinforced, proven];
+      const colors = ['#166534', '#22c55e', '#4ade80', '#86efac'];
+
+      Plotly.newPlot('chart-lifecycle', [{
+        type: 'funnel',
+        y: labels,
+        x: values,
+        textinfo: 'value+percent initial',
+        textposition: 'inside',
+        textfont: { color: '#f0f6fc', size: 13 },
+        marker: { color: colors },
+        connector: { line: { color: '#30363d', width: 1 } },
+        hovertemplate: '<b>%{y}</b><br>%{x} rules<extra></extra>',
+      }], darkLayout({
+        margin: { t: 10, r: 20, b: 30, l: 120 },
+        funnelmode: 'stack',
+        xaxis: {
+          gridcolor: '#30363d', zerolinecolor: '#30363d',
+          tickfont: { color: '#8b949e', size: 10 },
+          title: { text: 'Rules', font: { color: '#6e7681', size: 11 } },
+        },
+        yaxis: {
+          tickfont: { color: '#e6edf3', size: 12 },
+          automargin: true,
+        },
+      }), PLOTLY_CONFIG);
+
+      // Source breakdown
+      const container = document.getElementById('source-breakdown');
+      container.innerHTML = '';
+      for (const [src, cnt] of Object.entries(bySource)) {
+        const el = document.createElement('span');
+        el.className = 'source-item';
+        el.innerHTML = '<strong>' + fmt(cnt) + '</strong> ' + src.replace(/-/g, ' ');
+        container.appendChild(el);
+      }
+    }
+
+    // 2. Value Events Over Time (stacked area)
+    function renderValueEvents(data) {
+      const raw = data.valueEvents?.overTime;
+      if (!raw || !raw.length) {
+        var el = document.getElementById('chart-value-events');
+        if (el) el.innerHTML = '<div class="no-data">No value events recorded yet. Events are logged when rules are injected into sessions, reinforced by the reinforcement-tracker, or transition lifecycle states (created/activated/retired/promoted).</div>';
+        return;
+      }
+
+      const filtered = filterByRange(raw, 'day');
+      if (!filtered.length) { showNoData('chart-value-events'); return; }
+
+      const days = filtered.map(d => d.day);
+
+      // Rule Injection comes from value-events.jsonl (per-prompt hook).
+      // Reinforcement + Lifecycle are folded in from the rule audit trail
+      // (rules.json + rules-shared.json history[]) — they replace the two
+      // legacy series (skill_suggestion / session_search) whose producers
+      // either never existed or almost never fired interactively.
+      const traces = [
+        { x: days, y: filtered.map(d => d.rule_injection || 0), name: 'Rule Injection', stackgroup: 'one', fillcolor: 'rgba(96,165,250,0.5)', line: { color: '#fb923c', width: 1 } },
+        { x: days, y: filtered.map(d => d.reinforcement || 0), name: 'Rule Reinforcement', stackgroup: 'one', fillcolor: 'rgba(167,139,250,0.5)', line: { color: '#a78bfa', width: 1 } },
+        { x: days, y: filtered.map(d => d.lifecycle || 0), name: 'Rule Lifecycle (created/activated/retired/promoted)', stackgroup: 'one', fillcolor: 'rgba(52,211,153,0.5)', line: { color: '#34d399', width: 1 } },
+      ];
+
+      Plotly.newPlot('chart-value-events', traces, darkLayout({
+        showlegend: true,
+        legend: { orientation: 'h', y: 1.12, x: 0, font: { size: 11, color: '#8b949e' } },
+        xaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, type: 'date' },
+        yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Events', font: { color: '#6e7681', size: 11 } } },
+        margin: { t: 50, r: 20, b: 40, l: 50 },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 3. Sessions Embedded Over Time (bar)
+    function renderSessionsTime(data) {
+      const raw = data.sessions?.embeddedOverTime;
+      if (!raw || !raw.length) { showNoData('chart-sessions-time'); return; }
+
+      const filtered = filterWeeklyByRange(raw, 'week');
+      if (!filtered.length) { showNoData('chart-sessions-time'); return; }
+
+      Plotly.newPlot('chart-sessions-time', [{
+        type: 'bar',
+        x: filtered.map(d => d.week),
+        y: filtered.map(d => d.sessions),
+        marker: { color: '#fb923c' },
+        text: filtered.map(d => d.sessions),
+        textposition: 'outside',
+        textfont: { color: '#8b949e', size: 10 },
+      }], darkLayout({
+        margin: { t: 10, r: 10, b: 50, l: 40 },
+        xaxis: { gridcolor: 'transparent', zerolinecolor: '#30363d', tickfont: { color: '#8b949e', size: 9 }, tickangle: -45 },
+        yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Sessions', font: { color: '#6e7681', size: 10 } } },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 4. Search Analytics (line with fill)
+    function renderSearch(data) {
+      const search = data.search;
+      if (!search) { showNoData('chart-search'); return; }
+
+      // Annotations
+      const annBox = document.getElementById('search-annotations');
+      annBox.innerHTML =
+        '<div class="annotation">' +
+          '<div class="ann-value">' + (search.avgResultCount != null ? search.avgResultCount.toFixed(1) : '--') + '</div>' +
+          '<div class="ann-label">Avg Rules Injected / Prompt</div>' +
+        '</div>' +
+        '<div class="annotation">' +
+          '<div class="ann-value">' + (search.avgTopScore != null ? search.avgTopScore.toFixed(2) : '--') + '</div>' +
+          '<div class="ann-label">Avg Top Match (Jaccard)</div>' +
+        '</div>' +
+        '<div class="annotation">' +
+          '<div class="ann-value">' + fmt(search.totalQueries) + '</div>' +
+          '<div class="ann-label">Rule-Match Runs</div>' +
+        '</div>';
+
+      const raw = search.queryOverTime;
+      if (!raw || !raw.length) { showNoData('chart-search'); return; }
+
+      const filtered = filterByRange(raw, 'day');
+      if (!filtered.length) { showNoData('chart-search'); return; }
+
+      Plotly.newPlot('chart-search', [{
+        x: filtered.map(d => d.day),
+        y: filtered.map(d => d.count),
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#fb923c', width: 2 },
+        marker: { color: '#fb923c', size: 4 },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(96, 165, 250, 0.1)',
+      }], darkLayout({
+        margin: { t: 10, r: 20, b: 35, l: 40 },
+        xaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, type: 'date' },
+        yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Prompts', font: { color: '#6e7681', size: 11 } } },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 5. Quality Score Distribution (bar with gradient)
+    function renderQuality(data) {
+      const dist = data.sessions?.qualityDistribution;
+      if (!dist || !Object.keys(dist).length) { showNoData('chart-quality'); return; }
+
+      const bucketOrder = ['1-2', '3-4', '5-6', '7-8', '9-10'];
+      const labels = [];
+      const values = [];
+
+      for (const b of bucketOrder) {
+        if (dist[b] != null) {
+          labels.push(b);
+          values.push(dist[b]);
+        }
+      }
+      for (const [b, v] of Object.entries(dist)) {
+        if (!bucketOrder.includes(b)) {
+          labels.push(b);
+          values.push(v);
+        }
+      }
+
+      if (!labels.length) { showNoData('chart-quality'); return; }
+
+      const colorScale = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#10b981'];
+      const colors = labels.map((_, i) => colorScale[Math.min(i, colorScale.length - 1)]);
+
+      Plotly.newPlot('chart-quality', [{
+        type: 'bar',
+        x: labels,
+        y: values,
+        marker: {
+          color: colors,
+          line: { color: colors.map(c => c), width: 1 },
+        },
+        text: values.map(v => fmt(v)),
+        textposition: 'outside',
+        textfont: { color: '#8b949e', size: 11 },
+      }], darkLayout({
+        margin: { t: 30, r: 20, b: 40, l: 60 },
+        xaxis: { gridcolor: 'transparent', zerolinecolor: '#30363d', tickfont: { color: '#e6edf3' }, title: { text: 'Quality Score', font: { color: '#6e7681', size: 11 } } },
+        yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Chunks', font: { color: '#6e7681', size: 11 } } },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 6. Pipeline Activity Timeline
+    function renderPipelineActivity(data) {
+      var activity = data.pipeline?.recentActivity;
+      var el = document.getElementById('pipeline-activity-content');
+      if (!activity || !activity.length) { el.innerHTML = '<div class="no-data">No recent pipeline activity</div>'; return; }
+      var now = Date.now();
+      var html = '<div style="border-left:3px solid #f97316; padding-left:16px; margin:8px 0;">';
+      activity.forEach(function(a) {
+        var label = a.message.replace(/^chore\(self-improve\):\s*/i, '');
+        var relative = '';
+        if (a.date) {
+          var diff = now - new Date(a.date).getTime();
+          var days = Math.floor(diff / 86400000);
+          if (days === 0) relative = 'today';
+          else if (days === 1) relative = '1 day ago';
+          else relative = days + ' days ago';
+        }
+        html += '<div style="margin-bottom:12px;">';
+        html += '<div style="display:flex;align-items:center;gap:8px;">';
+        html += '<span style="width:8px;height:8px;background:#f97316;border-radius:50%;flex-shrink:0;"></span>';
+        html += '<span style="color:#e6edf3;font-size:0.85rem;word-break:break-word;">' + escapeHtml(label) + '</span>';
+        html += '</div>';
+        html += '<div style="margin-left:16px;font-size:0.75rem;color:#6e7681;">' + escapeHtml(relative) + ' &middot; ' + escapeHtml(a.hash) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    /* ================================================================
+       Rules & Learning Charts
+       ================================================================ */
+
+    // 1. Rule Category Distribution (horizontal bar)
+    function renderCategories(data) {
+      const cats = data.rules?.byCategory;
+      if (!cats || !Object.keys(cats).length) { showNoData('chart-categories'); return; }
+
+      const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+      const labels = sorted.map(e => e[0]);
+      const values = sorted.map(e => e[1]);
+      const maxVal = Math.max(...values);
+
+      const colors = values.map(v => {
+        const ratio = v / maxVal;
+        const r = Math.round(30 + ratio * 66);
+        const g = Math.round(41 + ratio * 124);
+        const b = Math.round(59 + ratio * 191);
+        return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+      });
+
+      // Compute dynamic chart height based on number of categories
+      var chartHeight = Math.max(300, sorted.length * 28 + 60);
+      var chartEl = document.getElementById('chart-categories');
+      if (chartEl) chartEl.style.minHeight = chartHeight + 'px';
+
+      Plotly.newPlot('chart-categories', [{
+        type: 'bar',
+        y: labels.reverse(),
+        x: values.reverse(),
+        orientation: 'h',
+        marker: { color: colors.reverse() },
+        text: values.map(v => fmt(v)),
+        textposition: 'outside',
+        textfont: { color: '#8b949e', size: 11 },
+      }], darkLayout({
+        height: chartHeight,
+        margin: { t: 10, r: 40, b: 30, l: 160 },
+        xaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' } },
+        yaxis: { gridcolor: 'transparent', zerolinecolor: 'transparent', tickfont: { color: '#e6edf3', size: 11 }, automargin: true },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 2. Top Rules by Usage (horizontal bar)
+    function renderTopRules(data) {
+      var rules = data.valueEvents?.topInjectedRules;
+      // Fallback to topReinforced data when no injection events exist
+      if (!rules || !rules.length) {
+        var reinforced = data.rules?.topReinforced;
+        if (reinforced && reinforced.length) {
+          rules = reinforced.map(function(r) { return { text: r.text, injectionCount: r.count }; });
+          // Update card subtitle to reflect data source
+          var subtitleEl = document.querySelector('#card-top-rules .card-subtitle');
+          if (subtitleEl) subtitleEl.textContent = 'By reinforcement count (no injection events recorded yet)';
+        }
+      }
+      if (!rules || !rules.length) { showNoData('chart-top-rules'); return; }
+
+      const top = rules.slice(0, 15);
+      const labels = top.map(r => truncate(r.text, 60)).reverse();
+      const values = top.map(r => r.injectionCount).reverse();
+
+      const maxVal = Math.max(...values);
+      const colors = values.map(v => {
+        const ratio = v / maxVal;
+        return 'rgba(96, 165, 250, ' + (0.3 + ratio * 0.7) + ')';
+      });
+
+      Plotly.newPlot('chart-top-rules', [{
+        type: 'bar',
+        y: labels,
+        x: values,
+        orientation: 'h',
+        marker: { color: colors },
+        text: values.map(v => fmt(v)),
+        textposition: 'outside',
+        textfont: { color: '#8b949e', size: 11 },
+      }], darkLayout({
+        margin: { t: 10, r: 50, b: 30, l: 350 },
+        xaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Injection Count', font: { color: '#6e7681', size: 11 } } },
+        yaxis: { gridcolor: 'transparent', zerolinecolor: 'transparent', tickfont: { color: '#e6edf3', size: 10 }, automargin: true },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 2b. Top Rules Detail Table
+    function renderTopRulesDetail(data) {
+      var rules = data.rules?.topReinforced;
+      var el = document.getElementById('top-rules-detail-content');
+      if (!rules || !rules.length) { el.innerHTML = '<div class="no-data">No rule data available</div>'; return; }
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">';
+      html += '<thead><tr style="border-bottom:1px solid #30363d;text-align:left;">';
+      html += '<th style="padding:8px 12px;color:#8b949e;width:55%;">Rule Text</th>';
+      html += '<th style="padding:8px 12px;color:#8b949e;width:20%;">Rule ID</th>';
+      html += '<th style="padding:8px 12px;color:#8b949e;width:12%;text-align:right;">Reinforcements</th>';
+      html += '</tr></thead><tbody>';
+      rules.forEach(function(r) {
+        html += '<tr style="border-bottom:1px solid #161b22;">';
+        html += '<td style="padding:8px 12px;color:#e6edf3;line-height:1.4;">' + escapeHtml(r.text || '--') + '</td>';
+        html += '<td style="padding:8px 12px;color:#6e7681;font-family:monospace;font-size:0.75rem;">' + escapeHtml(r.id || '--') + '</td>';
+        html += '<td style="padding:8px 12px;color:#fb923c;font-weight:600;text-align:right;">' + (r.count || 0) + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    // 2c. Never-Used Rules Table
+    function renderNeverUsedRules(data) {
+      var rules = data.rules?.neverUsed;
+      var titleEl = document.getElementById('never-used-rules-title');
+      var el = document.getElementById('never-used-rules-content');
+      if (!rules || !rules.length) { el.innerHTML = '<div class="no-data" style="color:#34d399;">All active rules have been reinforced at least once</div>'; titleEl.textContent = 'Never-Used Rules'; return; }
+      titleEl.textContent = 'Never-Used Rules (' + rules.length + ')';
+      var now = Date.now();
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">';
+      html += '<thead><tr style="border-bottom:1px solid #30363d;text-align:left;">';
+      html += '<th style="padding:8px 12px;color:#8b949e;width:60%;">Rule Text</th>';
+      html += '<th style="padding:8px 12px;color:#8b949e;width:20%;">Created Date</th>';
+      html += '<th style="padding:8px 12px;color:#8b949e;width:12%;text-align:right;">Age (days)</th>';
+      html += '</tr></thead><tbody>';
+      rules.forEach(function(r) {
+        var created = r.createdAt ? r.createdAt.slice(0, 10) : '--';
+        var ageDays = r.createdAt ? Math.floor((now - new Date(r.createdAt).getTime()) / 86400000) : 0;
+        var ageColor = ageDays > 60 ? '#f97316' : '#8b949e';
+        var rowBg = ageDays > 60 ? 'background:rgba(249,115,22,0.06);' : '';
+        html += '<tr style="border-bottom:1px solid #161b22;' + rowBg + '">';
+        html += '<td style="padding:8px 12px;color:#e6edf3;line-height:1.4;">' + escapeHtml(r.text || '--') + '</td>';
+        html += '<td style="padding:8px 12px;color:#6e7681;">' + escapeHtml(created) + '</td>';
+        html += '<td style="padding:8px 12px;color:' + ageColor + ';font-weight:600;text-align:right;">' + ageDays + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    // 3. Reflection Analysis (donut/pie)
+    function renderReflections(data) {
+      var types = data.reflections?.byFailureType;
+      // Derive failure types from recentReflections if byFailureType is empty
+      if ((!types || !Object.keys(types).length) && data.reflections?.recentReflections?.length) {
+        types = {};
+        data.reflections.recentReflections.forEach(function(r) {
+          var desc = (r.failureDescription || '').toLowerCase();
+          var type;
+          if (/edited.*times|backtrack/i.test(desc)) type = 'backtracking';
+          else if (/consecutive.*error|retry/i.test(desc)) type = 'retry-loop';
+          else if (/git\s*(reset|revert)/i.test(desc)) type = 'git-revert';
+          else type = 'error-message';
+          types[type] = (types[type] || 0) + 1;
+        });
+      }
+      if (!types || !Object.keys(types).length) { showNoData('chart-reflections'); return; }
+
+      const labels = Object.keys(types).map(k => k.replace(/-/g, ' '));
+      const values = Object.values(types);
+      const colors = ['#f87171', '#fb923c', '#facc15', '#34d399', '#fb923c', '#a78bfa', '#f472b6', '#e879f9'];
+
+      // Ensure chart container has enough height for the pie
+      var chartEl = document.getElementById('chart-reflections');
+      if (chartEl) chartEl.style.minHeight = '280px';
+
+      Plotly.newPlot('chart-reflections', [{
+        type: 'pie',
+        labels: labels,
+        values: values,
+        hole: 0.5,
+        textinfo: 'label+percent',
+        textfont: { color: '#e6edf3', size: 11 },
+        marker: {
+          colors: colors.slice(0, labels.length),
+          line: { color: '#161b22', width: 2 },
+        },
+        insidetextorientation: 'radial',
+      }], darkLayout({
+        margin: { t: 20, r: 10, b: 30, l: 10 },
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.05, x: 0.5, xanchor: 'center', font: { size: 11, color: '#8b949e' } },
+      }), PLOTLY_CONFIG);
+    }
+
+    // 3b. Recent Reflections (table)
+    function renderRecentReflections(data) {
+      var refs = data.reflections?.recentReflections;
+      var el = document.getElementById('recent-reflections-content');
+      if (!refs || !refs.length) { el.innerHTML = '<div class="no-data">No reflection data available</div>'; return; }
+      var html = '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">';
+      html += '<thead><tr style="border-bottom:1px solid #30363d;text-align:left;">';
+      html += '<th style="padding:8px;color:#8b949e;width:90px;">Date</th>';
+      html += '<th style="padding:8px;color:#8b949e;">Failure</th>';
+      html += '<th style="padding:8px;color:#8b949e;">Root Cause</th>';
+      html += '<th style="padding:8px;color:#8b949e;">Prevention Rule</th>';
+      html += '</tr></thead><tbody>';
+      refs.forEach(function(r) {
+        var d = r.date ? r.date.slice(0, 10) : '--';
+        html += '<tr style="border-bottom:1px solid #161b22;">';
+        html += '<td style="padding:8px;color:#6e7681;white-space:nowrap;vertical-align:top;">' + escapeHtml(d) + '</td>';
+        html += '<td style="padding:8px;color:#e6edf3;vertical-align:top;">' + escapeHtml(r.failureDescription || '--') + '</td>';
+        html += '<td style="padding:8px;color:#e6edf3;vertical-align:top;">' + escapeHtml(r.rootCause || '--') + '</td>';
+        html += '<td style="padding:8px;color:#34d399;vertical-align:top;">' + escapeHtml(r.preventionRule || '--') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    // 4. Rule Timeline (dual chart)
+    function renderTimeline(data) {
+      // Created over time
+      const createdRaw = data.rules?.createdOverTime;
+      const filteredCreated = filterWeeklyByRange(createdRaw, 'week');
+
+      if (filteredCreated && filteredCreated.length) {
+        Plotly.newPlot('chart-created-over-time', [{
+          type: 'bar',
+          x: filteredCreated.map(d => d.week),
+          y: filteredCreated.map(d => d.count),
+          marker: { color: '#fb923c' },
+          text: filteredCreated.map(d => d.count),
+          textposition: 'outside',
+          textfont: { color: '#8b949e', size: 10 },
+        }], darkLayout({
+          margin: { t: 10, r: 10, b: 50, l: 40 },
+          xaxis: { gridcolor: 'transparent', zerolinecolor: '#30363d', tickfont: { color: '#8b949e', size: 9 }, tickangle: -45 },
+          yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Rules', font: { color: '#6e7681', size: 10 } } },
+        }), PLOTLY_CONFIG);
+      } else {
+        showNoData('chart-created-over-time');
+      }
+
+      // Reinforcement distribution
+      const reinforceDist = data.rules?.reinforcementDistribution;
+      if (reinforceDist && reinforceDist.length) {
+        const buckets = reinforceDist.map(d => d.bucket);
+        const counts = reinforceDist.map(d => d.count);
+
+        Plotly.newPlot('chart-reinforcement-dist', [{
+          type: 'bar',
+          x: buckets,
+          y: counts,
+          marker: { color: '#a78bfa' },
+          text: counts.map(v => fmt(v)),
+          textposition: 'outside',
+          textfont: { color: '#8b949e', size: 10 },
+        }], darkLayout({
+          margin: { t: 10, r: 10, b: 50, l: 40 },
+          xaxis: { gridcolor: 'transparent', zerolinecolor: '#30363d', tickfont: { color: '#8b949e', size: 9 }, title: { text: 'Reinforcement Count', font: { color: '#6e7681', size: 10 } } },
+          yaxis: { gridcolor: '#30363d', zerolinecolor: '#30363d', tickfont: { color: '#8b949e' }, title: { text: 'Rules', font: { color: '#6e7681', size: 10 } } },
+        }), PLOTLY_CONFIG);
+      } else {
+        showNoData('chart-reinforcement-dist');
+      }
+    }
+
+    /* ================================================================
+       Knowledge Map
+       ================================================================ */
+    function renderKnowledgeMap(data) {
+      const topics = data.topics;
+      if (!topics || !topics.terms || !topics.terms.length) {
+        document.getElementById('km-cloud').innerHTML = '<div class="no-data">No topic data available</div>';
+        return;
+      }
+
+      renderWordCloud(topics.terms);
+      renderTopTerms(topics.terms);
+    }
+
+    function renderWordCloud(terms) {
+      const container = document.getElementById('km-cloud');
+      container.innerHTML = '';
+
+      const filtered = terms.filter(function(w) {
+        if (kmFilter !== 'all' && w.type !== kmFilter) return false;
+        if (kmSearchQuery && !w.text.toLowerCase().includes(kmSearchQuery.toLowerCase())) return false;
+        return true;
+      });
+
+      filtered.forEach(function(word) {
+        const span = document.createElement('span');
+        span.className = 'km-word' + (kmSelectedTerm === word.text ? ' selected' : '');
+        span.textContent = word.text;
+        span.style.fontSize = word.size + 'px';
+        span.style.color = topicColors[word.type] || '#8b949e';
+        span.dataset.term = word.text;
+        span.addEventListener('click', function() { selectKmTerm(word); });
+        container.appendChild(span);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="no-data">No terms match the current filter</div>';
+      }
+    }
+
+    function selectKmTerm(word) {
+      kmSelectedTerm = word.text;
+
+      // Re-render cloud to show selection
+      if (DATA && DATA.topics && DATA.topics.terms) {
+        renderWordCloud(DATA.topics.terms);
+      }
+
+      document.getElementById('km-default-view').style.display = 'none';
+      var detail = document.getElementById('km-term-detail');
+      detail.classList.add('active');
+
+      document.getElementById('km-detail-name').textContent = word.text;
+      document.getElementById('km-detail-type').textContent = word.type;
+      document.getElementById('km-detail-type').style.background = topicColors[word.type] || '#6e7681';
+      document.getElementById('km-detail-type').style.color = 'white';
+      document.getElementById('km-detail-count').textContent = (word.count || 0) + ' mentions';
+      document.getElementById('km-detail-sessions').textContent = (word.sessions || 0) + ' sessions';
+
+      var contextsDiv = document.getElementById('km-detail-contexts');
+      var contexts = word.contexts || [];
+      contextsDiv.innerHTML = contexts.length > 0
+        ? contexts.map(function(c) { return '<div class="km-context-item">...' + escapeHtml(c) + '...</div>'; }).join('')
+        : '<div class="km-context-item">No context snippets available</div>';
+    }
+
+    function renderTopTerms(terms) {
+      var container = document.getElementById('km-top-terms');
+      var maxCount = terms[0]?.count || 1;
+
+      container.innerHTML = terms.slice(0, 20).map(function(w) {
+        return '<div class="km-top-term-item" data-term-text="' + escapeAttr(w.text) + '">' +
+          '<span class="km-top-term-name" style="color: ' + (topicColors[w.type] || '#8b949e') + '">' + escapeHtml(w.text) + '</span>' +
+          '<span class="km-top-term-count">' + w.count + '</span>' +
+          '<div class="km-top-term-bar">' +
+            '<div class="km-top-term-bar-fill" style="width: ' + ((w.count / maxCount) * 100) + '%"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      // Add click handlers to top term items
+      container.querySelectorAll('.km-top-term-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+          var termText = item.dataset.termText;
+          var term = terms.find(function(t) { return t.text === termText; });
+          if (term) selectKmTerm(term);
+        });
+      });
+    }
+
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function escapeAttr(str) {
+      return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /* ================================================================
+       Tab Render Functions
+       ================================================================ */
+    function renderOverviewTab(data) {
+      renderHeader(data);
+      renderLifecycle(data);
+      renderValueEvents(data);
+      renderSessionsTime(data);
+      renderSearch(data);
+      renderQuality(data);
+      renderPipelineActivity(data);
+    }
+
+    function renderRulesTab(data) {
+      renderCategories(data);
+      renderTopRules(data);
+      renderTopRulesDetail(data);
+      renderNeverUsedRules(data);
+      renderReflections(data);
+      renderRecentReflections(data);
+      renderTimeline(data);
+    }
+
+    /* ================================================================
+       Controls
+       ================================================================ */
+    function setRange(days) {
+      currentRange = days;
+      // Update all range button states (both overview and rules tabs have them)
+      document.querySelectorAll('.controls .btn[data-range]').forEach(function(btn) {
+        btn.classList.toggle('active', parseInt(btn.dataset.range, 10) === days);
+      });
+      if (DATA) {
+        if (currentTab === 'overview') renderOverviewTab(DATA);
+        else if (currentTab === 'team') renderTeamTab(DATA);
+        else if (currentTab === 'rules') renderRulesTab(DATA);
+      }
+    }
+
+    async function refresh() {
+      var btns = document.querySelectorAll('.btn-refresh');
+      btns.forEach(function(btn) { btn.disabled = true; btn.style.opacity = '0.5'; });
+      try {
+        DATA = await loadData();
+        if (currentTab === 'overview') renderOverviewTab(DATA);
+        else if (currentTab === 'team') renderTeamTab(DATA);
+        else if (currentTab === 'rules') renderRulesTab(DATA);
+        else if (currentTab === 'knowledge') renderKnowledgeMap(DATA);
+        else if (currentTab === 'authorship') { renderAuthorshipTab(DATA); renderAuditTrail(DATA); }
+        document.getElementById('error-banner').className = 'error-banner';
+      } catch (err) {
+        var banner = document.getElementById('error-banner');
+        banner.textContent = 'Failed to refresh: ' + err.message;
+        banner.className = 'error-banner visible';
+      } finally {
+        btns.forEach(function(btn) { btn.disabled = false; btn.style.opacity = '1'; });
+      }
+    }
+
+    /* ================================================================
+       Knowledge Map Event Listeners
+       ================================================================ */
+    function setupKnowledgeMapListeners() {
+      // Filter buttons
+      document.querySelectorAll('.km-filter-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.km-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          kmFilter = btn.dataset.filter;
+          if (DATA && DATA.topics && DATA.topics.terms) {
+            renderWordCloud(DATA.topics.terms);
+          }
+        });
+      });
+
+      // Search input
+      document.getElementById('km-search').addEventListener('input', function(e) {
+        kmSearchQuery = e.target.value;
+        if (DATA && DATA.topics && DATA.topics.terms) {
+          renderWordCloud(DATA.topics.terms);
+        }
+      });
+    }
+
+    /* ================================================================
+       Init
+       ================================================================ */
+    async function init() {
+      setupKnowledgeMapListeners();
+
+      try {
+        DATA = await loadData();
+        renderOverviewTab(DATA);
+      } catch (err) {
+        var banner = document.getElementById('error-banner');
+        banner.textContent = 'Failed to load dashboard-data.json \u2014 ' + err.message + '. Make sure the file exists in the same directory.';
+        banner.className = 'error-banner visible';
+      } finally {
+        var overlay = document.getElementById('loading');
+        overlay.classList.add('hidden');
+        setTimeout(function() { overlay.remove(); }, 300);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

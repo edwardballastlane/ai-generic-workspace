@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Process - Lane</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-purple: #a371f7;
+            --accent-red: #f85149;
+            --accent-orange: #db6d28;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        nav {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 0.5rem 0;
+        }
+
+        nav a:hover, nav a.active {
+            color: var(--accent-blue);
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 3rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--accent-yellow), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .card h3 {
+            color: var(--text-primary);
+            margin: 1.5rem 0 1rem;
+            font-size: 1.2rem;
+        }
+
+        /* Your Role Overview */
+        .role-overview {
+            background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1));
+            border: 2px solid var(--accent-blue);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .role-overview h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .role-flow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .role-box {
+            flex: 1;
+            min-width: 150px;
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+        }
+
+        .role-box.you {
+            border-color: var(--accent-green);
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .role-box.ai {
+            border-color: var(--accent-purple);
+            background: rgba(163, 113, 247, 0.1);
+        }
+
+        .role-box .icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .role-box strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .role-box small {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .role-arrow {
+            color: var(--accent-blue);
+            font-size: 1.5rem;
+        }
+
+        .role-note {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .role-note strong {
+            color: var(--accent-green);
+        }
+
+        /* Journey Diagram */
+        .journey-container {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2rem 0;
+            overflow-x: auto;
+        }
+
+        .journey-phase {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .journey-phase h4 {
+            color: var(--accent-blue);
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .journey-agents {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .journey-agent {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .journey-arrow {
+            color: var(--text-secondary);
+        }
+
+        .journey-checkpoint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(63, 185, 80, 0.15);
+            border: 1px solid var(--accent-green);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: var(--accent-green);
+        }
+
+        /* Quality Gates */
+        .gates-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .gate {
+            display: flex;
+            align-items: stretch;
+            gap: 1rem;
+        }
+
+        .gate-number {
+            width: 80px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .gate-number .num {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+        }
+
+        .gate-number .label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .gate-content {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .gate-info {
+            flex: 1;
+        }
+
+        .gate-info h4 {
+            margin-bottom: 0.25rem;
+        }
+
+        .gate-info p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .gate-status {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .status-pass {
+            padding: 0.5rem 1rem;
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--accent-green);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .status-fail {
+            padding: 0.5rem 1rem;
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--accent-red);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .gate-connector {
+            width: 80px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .gate-connector::after {
+            content: "";
+            width: 2px;
+            height: 20px;
+            background: var(--border-color);
+        }
+
+        /* Workflow Types */
+        .workflow-types {
+            display: grid;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .workflow-type {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .workflow-type .badge {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .workflow-type .badge.quick {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--accent-green);
+        }
+
+        .workflow-type .badge.full {
+            background: rgba(88, 166, 255, 0.2);
+            color: var(--accent-blue);
+        }
+
+        .workflow-type .badge.enterprise {
+            background: rgba(163, 113, 247, 0.2);
+            color: var(--accent-purple);
+        }
+
+        .workflow-type .agents {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .workflow-type .agents span {
+            font-size: 1.2rem;
+        }
+
+        .workflow-type .agents .arrow {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .workflow-type .time {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        /* Checklist */
+        .checklist {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .checklist h4 {
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .checklist-items {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+
+        .checklist-item:hover {
+            background: var(--bg-secondary);
+        }
+
+        .checklist-item .box {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: transparent;
+        }
+
+        .checklist-item.checked .box {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: white;
+        }
+
+        /* PR Review Section */
+        .pr-preview {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .pr-preview h4 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .pr-section {
+            margin-bottom: 1rem;
+        }
+
+        .pr-section h5 {
+            color: var(--accent-blue);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pr-section ul {
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .pr-evidence {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .evidence-box {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .evidence-box .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+        }
+
+        .evidence-box .value {
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+
+        /* Error Scenarios */
+        .scenario {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .scenario h4 {
+            color: var(--accent-yellow);
+            margin-bottom: 1rem;
+        }
+
+        .scenario-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .scenario-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+        }
+
+        .scenario-step .icon {
+            width: 24px;
+            text-align: center;
+        }
+
+        .scenario-step.fail {
+            color: var(--accent-red);
+        }
+
+        .scenario-step.success {
+            color: var(--accent-green);
+        }
+
+        .scenario-step.action {
+            color: var(--accent-blue);
+            margin-left: 2rem;
+        }
+
+        /* Tables */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .info-table th,
+        .info-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .info-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .info-table code {
+            background: var(--bg-primary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding: 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+
+            .role-flow {
+                flex-direction: column;
+            }
+
+            .role-arrow {
+                transform: rotate(90deg);
+            }
+
+            .gate {
+                flex-direction: column;
+            }
+
+            .gate-number {
+                width: 100%;
+                flex-direction: row;
+                gap: 1rem;
+            }
+
+            .pr-evidence {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="GETTING_STARTED.html">Getting Started</a></li>
+            <li><a href="USAGE_GUIDE.html">Usage Guide</a></li>
+            <li><a href="VALIDATION_PROCESS.html" class="active">Validation Process</a></li>
+            <li><a href="COMMANDS.html">Commands</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>Validation Process</h1>
+            <p>What happens behind the scenes and what you need to do as an engineer</p>
+        </header>
+
+        <!-- Your Role Overview -->
+        <div class="role-overview">
+            <h2>Your Role at a Glance</h2>
+
+            <div class="role-flow">
+                <div class="role-box you">
+                    <div class="icon">&#128100;</div>
+                    <strong>YOU</strong>
+                    <small>Start Task</small>
+                </div>
+                <span class="role-arrow">&rarr;</span>
+                <div class="role-box ai">
+                    <div class="icon">&#129302;</div>
+                    <strong>AI</strong>
+                    <small>Handles Everything</small>
+                </div>
+                <span class="role-arrow">&rarr;</span>
+                <div class="role-box you">
+                    <div class="icon">&#128100;</div>
+                    <strong>YOU</strong>
+                    <small>Review & Merge</small>
+                </div>
+            </div>
+
+            <p class="role-note">
+                <strong>You only do 2 things:</strong> Start the workflow, then review the PR.
+            </p>
+        </div>
+
+        <!-- The Complete Journey -->
+        <section class="card">
+            <h2>The Complete Journey</h2>
+
+            <div class="journey-container">
+                <div class="journey-phase">
+                    <h4>Phase 1: Routing</h4>
+                    <div class="journey-agents">
+                        <span class="journey-agent">&#128221; Task Analyzed</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-agent">&#127919; Workflow Selected</span>
+                    </div>
+                </div>
+
+                <div class="journey-phase">
+                    <h4>Phase 2: Planning</h4>
+                    <div class="journey-agents">
+                        <span class="journey-agent">&#127959; Architect</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-agent">&#127912; Designer</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-agent">&#128221; Tech Writer</span>
+                    </div>
+                </div>
+
+                <div class="journey-phase">
+                    <h4>Phase 3: Implementation</h4>
+                    <div class="journey-agents">
+                        <span class="journey-agent">&#128187; Developer</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-checkpoint">&#9989; BUILD</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-agent">&#129514; Tester</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-checkpoint">&#9989; TESTS</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-agent">&#128065; Reviewer</span>
+                    </div>
+                </div>
+
+                <div class="journey-phase">
+                    <h4>Phase 4: Delivery</h4>
+                    <div class="journey-agents">
+                        <span class="journey-agent">&#128640; Deployer</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-checkpoint">&#128230; PR Created</span>
+                        <span class="journey-arrow">&rarr;</span>
+                        <span class="journey-agent" style="background: rgba(63, 185, 80, 0.2); border: 1px solid var(--accent-green);">&#128100; YOUR REVIEW</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quality Gates -->
+        <section class="card">
+            <h2>Quality Gates</h2>
+            <p>Each gate must pass before proceeding to the next stage.</p>
+
+            <div class="gates-flow">
+                <div class="gate">
+                    <div class="gate-number">
+                        <div class="num">1</div>
+                        <div class="label">Gate</div>
+                    </div>
+                    <div class="gate-content">
+                        <div class="gate-info">
+                            <h4>Build Verification</h4>
+                            <p><code>npm run build</code> - Compiles without errors</p>
+                        </div>
+                        <div class="gate-status">
+                            <span class="status-pass">&#10003; PASS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gate-connector"></div>
+
+                <div class="gate">
+                    <div class="gate-number">
+                        <div class="num">2</div>
+                        <div class="label">Gate</div>
+                    </div>
+                    <div class="gate-content">
+                        <div class="gate-info">
+                            <h4>Test Execution</h4>
+                            <p><code>npm test</code> - All tests passing, coverage adequate</p>
+                        </div>
+                        <div class="gate-status">
+                            <span class="status-pass">&#10003; PASS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gate-connector"></div>
+
+                <div class="gate">
+                    <div class="gate-number">
+                        <div class="num">3</div>
+                        <div class="label">Gate</div>
+                    </div>
+                    <div class="gate-content">
+                        <div class="gate-info">
+                            <h4>Code Review</h4>
+                            <p>Reviewer agent checks patterns, security, performance</p>
+                        </div>
+                        <div class="gate-status">
+                            <span class="status-pass">&#10003; APPROVED</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gate-connector"></div>
+
+                <div class="gate">
+                    <div class="gate-number">
+                        <div class="num">4</div>
+                        <div class="label">Gate</div>
+                    </div>
+                    <div class="gate-content" style="border: 2px solid var(--accent-green);">
+                        <div class="gate-info">
+                            <h4>Human Review</h4>
+                            <p><strong style="color: var(--accent-green);">YOU ARE HERE</strong> - Final approval before merge</p>
+                        </div>
+                        <div class="gate-status">
+                            <span class="status-pass">&#128100; YOU</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Workflow Types -->
+        <section class="card">
+            <h2>Workflow Types Comparison</h2>
+
+            <div class="workflow-types">
+                <div class="workflow-type">
+                    <span class="badge quick">Quick Flow</span>
+                    <div class="agents">
+                        <span>&#128187;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#129514;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128640;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128100;</span>
+                    </div>
+                    <span class="time">~5 min</span>
+                </div>
+
+                <div class="workflow-type">
+                    <span class="badge full">Full BMAD</span>
+                    <div class="agents">
+                        <span>&#127959;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#127912;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128187;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#129514;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128065;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128640;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128218;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128100;</span>
+                    </div>
+                    <span class="time">~15 min</span>
+                </div>
+
+                <div class="workflow-type">
+                    <span class="badge enterprise">Enterprise</span>
+                    <div class="agents">
+                        <span>&#128269;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128202;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#127959;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#127912;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128187;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#129514;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128065;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128640;</span>
+                        <span class="arrow">&rarr;</span>
+                        <span>&#128100;</span>
+                    </div>
+                    <span class="time">~30 min</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Engineer Checklist -->
+        <section class="card">
+            <h2>Engineer Checklist</h2>
+
+            <div class="checklist">
+                <h4>STEP 1: START</h4>
+                <div class="checklist-items">
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Run: <code>/work-ticket "your task description"</code></span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Be specific: "Add user avatar upload with 2MB limit"</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="checklist">
+                <h4>STEP 2: ANSWER QUESTIONS (when asked)</h4>
+                <div class="checklist-items">
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Branch name? &rarr; "feature/user-avatar"</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Base branch? &rarr; "dev" or "main"</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Approve PR? &rarr; "Yes" or request changes</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="checklist">
+                <h4>STEP 3: REVIEW PR</h4>
+                <div class="checklist-items">
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Check build passed</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Check tests passed</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Review code changes</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Verify it does what you asked</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="checklist">
+                <h4>STEP 4: APPROVE & MERGE</h4>
+                <div class="checklist-items">
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Approve PR</span>
+                    </div>
+                    <div class="checklist-item">
+                        <span class="box">&#9744;</span>
+                        <span>Merge to target branch</span>
+                    </div>
+                    <div class="checklist-item checked">
+                        <span class="box">&#10003;</span>
+                        <span>Done!</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- What to Check in PR -->
+        <section class="card">
+            <h2>What to Check in PR Review</h2>
+
+            <div class="pr-preview">
+                <h4>PR Evidence Section</h4>
+
+                <div class="pr-evidence">
+                    <div class="evidence-box">
+                        <div class="label">BUILD</div>
+                        <div class="value">&#10003; PASS</div>
+                    </div>
+                    <div class="evidence-box">
+                        <div class="label">TESTS</div>
+                        <div class="value">24/24 &#10003;</div>
+                    </div>
+                    <div class="evidence-box">
+                        <div class="label">COVERAGE</div>
+                        <div class="value">87%</div>
+                    </div>
+                </div>
+
+                <div class="pr-section" style="margin-top: 1.5rem;">
+                    <h5>Code Changes Checklist</h5>
+                    <ul>
+                        <li>Does it do what was requested?</li>
+                        <li>Clean code, proper patterns?</li>
+                        <li>No obvious security issues?</li>
+                        <li>Tests are meaningful?</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- When Things Go Wrong -->
+        <section class="card">
+            <h2>When Things Go Wrong</h2>
+
+            <div class="scenario">
+                <h4>Scenario: Build Fails</h4>
+                <div class="scenario-flow">
+                    <div class="scenario-step">
+                        <span class="icon">&#128187;</span>
+                        <span>Developer writes code</span>
+                    </div>
+                    <div class="scenario-step fail">
+                        <span class="icon">&#10060;</span>
+                        <span>BUILD FAILS</span>
+                    </div>
+                    <div class="scenario-step action">
+                        <span class="icon">&#128260;</span>
+                        <span>AI automatically: Shows error, Developer fixes, Rebuilds</span>
+                    </div>
+                    <div class="scenario-step success">
+                        <span class="icon">&#10003;</span>
+                        <span>BUILD PASSES &rarr; Continue...</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scenario">
+                <h4>Scenario: You Request Changes</h4>
+                <div class="scenario-flow">
+                    <div class="scenario-step">
+                        <span class="icon">&#128100;</span>
+                        <span>You: "Add input validation"</span>
+                    </div>
+                    <div class="scenario-step action">
+                        <span class="icon">&#128187;</span>
+                        <span>Developer fixes</span>
+                    </div>
+                    <div class="scenario-step action">
+                        <span class="icon">&#129514;</span>
+                        <span>Tester re-validates</span>
+                    </div>
+                    <div class="scenario-step action">
+                        <span class="icon">&#128065;</span>
+                        <span>Reviewer re-approves</span>
+                    </div>
+                    <div class="scenario-step action">
+                        <span class="icon">&#128221;</span>
+                        <span>New commit pushed</span>
+                    </div>
+                    <div class="scenario-step success">
+                        <span class="icon">&#128100;</span>
+                        <span>You review again</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agent-to-Agent Quality Gates -->
+        <section class="card">
+            <h2>Agent-to-Agent Quality Gates</h2>
+            <p>Each handoff acts as a quality checkpoint:</p>
+
+            <table class="info-table">
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Quality Check</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Architect</td>
+                        <td>Designer</td>
+                        <td>Architecture is implementable</td>
+                    </tr>
+                    <tr>
+                        <td>Designer</td>
+                        <td>Developer</td>
+                        <td>Designs are complete with specs</td>
+                    </tr>
+                    <tr>
+                        <td>Developer</td>
+                        <td>Tester</td>
+                        <td>Code is testable, builds successfully</td>
+                    </tr>
+                    <tr>
+                        <td>Tester</td>
+                        <td>Reviewer</td>
+                        <td>Tests pass, coverage adequate</td>
+                    </tr>
+                    <tr>
+                        <td>Reviewer</td>
+                        <td>Deployer</td>
+                        <td>Code meets standards, approved</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Branch & Commit Standards -->
+        <section class="card">
+            <h2>Branch & Commit Standards</h2>
+
+            <h3>Branch Naming</h3>
+            <table class="info-table">
+                <thead>
+                    <tr>
+                        <th>Workflow</th>
+                        <th>Branch Format</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Quick Flow</td>
+                        <td><code>fix/description</code></td>
+                        <td><code>fix/login-redirect</code></td>
+                    </tr>
+                    <tr>
+                        <td>Full BMAD</td>
+                        <td><code>feature/description</code></td>
+                        <td><code>feature/dark-mode</code></td>
+                    </tr>
+                    <tr>
+                        <td>Enterprise</td>
+                        <td><code>epic/description</code></td>
+                        <td><code>epic/auth-system</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Commit Message Format</h3>
+            <table class="info-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Use For</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>feat</code></td>
+                        <td>New features</td>
+                    </tr>
+                    <tr>
+                        <td><code>fix</code></td>
+                        <td>Bug fixes</td>
+                    </tr>
+                    <tr>
+                        <td><code>docs</code></td>
+                        <td>Documentation</td>
+                    </tr>
+                    <tr>
+                        <td><code>refactor</code></td>
+                        <td>Code refactoring</td>
+                    </tr>
+                    <tr>
+                        <td><code>test</code></td>
+                        <td>Test additions/changes</td>
+                    </tr>
+                    <tr>
+                        <td><code>chore</code></td>
+                        <td>Maintenance tasks</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Remember -->
+        <section class="card" style="background: linear-gradient(135deg, rgba(63, 185, 80, 0.1), rgba(88, 166, 255, 0.1)); border-color: var(--accent-green);">
+            <h2 style="color: var(--accent-green);">Remember</h2>
+            <p style="font-size: 1.1rem; text-align: center;">
+                The AI handles validation loops automatically.<br>
+                <strong>Your job is the final human review before merge.</strong>
+            </p>
+        </section>
+    </div>
+
+    <footer>
+        <p>Lane - <a href="COMMANDS.html">Commands</a> | <a href="USAGE_GUIDE.html">Usage Guide</a> | <a href="GETTING_STARTED.html">Getting Started</a></p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "session_id": "11111111-2222-3333-4444-555555555555",
+  "transcript_path": "tests/fixtures/transcript-min.jsonl",
+  "cwd": ".",
+  "model": { "id": "claude-sonnet-4-6", "display_name": "Sonnet 4.6" },
+  "cost": { "total_cost_usd": 0.05, "total_duration_ms": 30000, "total_lines_added": 10, "total_lines_removed": 5 }
+}

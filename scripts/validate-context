@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+# validate-context - Check if .ai-context.yaml is still valid
+# Usage: ./scripts/validate-context <project-name>
+# Returns: 0 if valid, 1 if stale/missing
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+PROJECT="$1"
+
+if [ -z "$PROJECT" ]; then
+    echo "Usage: ./scripts/validate-context <project-name>"
+    exit 1
+fi
+
+PROJECT_PATH="$ROOT_DIR/agent/_projects/$PROJECT"
+CONTEXTS_DIR="$ROOT_DIR/.ai-contexts"
+CONTEXT_FILE="$CONTEXTS_DIR/$PROJECT.yaml"
+
+# Special case: workspace itself (ai-dev-agent)
+if [ "$PROJECT" = "ai-dev-agent" ]; then
+    PROJECT_PATH="$ROOT_DIR"
+fi
+
+# Check if context file exists
+if [ ! -f "$CONTEXT_FILE" ]; then
+    echo -e "${YELLOW}Context file not found${NC}"
+    exit 1
+fi
+
+# Compute current hash
+file_hash() {
+    if [ -f "$1" ]; then
+        shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
+    else
+        echo "file-not-found"
+    fi
+}
+
+# Get stored hash from context file
+get_stored_hash() {
+    local file="$1"
+    grep "^  $file:" "$CONTEXT_FILE" 2>/dev/null | sed 's/.*: *"\([^"]*\)".*/\1/'
+}
+
+# Validate each watched file
+VALID=true
+
+# Check package.json
+CURRENT_PKG=$(file_hash "$PROJECT_PATH/package.json")
+STORED_PKG=$(get_stored_hash "package.json")
+if [ "$CURRENT_PKG" != "$STORED_PKG" ] && [ "$STORED_PKG" != "" ]; then
+    echo -e "${YELLOW}package.json changed${NC}"
+    VALID=false
+fi
+
+# Check tsconfig.json
+CURRENT_TS=$(file_hash "$PROJECT_PATH/tsconfig.json")
+STORED_TS=$(get_stored_hash "tsconfig.json")
+if [ "$CURRENT_TS" != "$STORED_TS" ] && [ "$STORED_TS" != "" ]; then
+    echo -e "${YELLOW}tsconfig.json changed${NC}"
+    VALID=false
+fi
+
+# Check tailwind.config
+CURRENT_TW=$(file_hash "$PROJECT_PATH/tailwind.config.js")
+[ "$CURRENT_TW" = "file-not-found" ] && CURRENT_TW=$(file_hash "$PROJECT_PATH/tailwind.config.ts")
+STORED_TW=$(get_stored_hash "tailwind.config")
+if [ "$CURRENT_TW" != "$STORED_TW" ] && [ "$STORED_TW" != "" ] && [ "$STORED_TW" != "file-not-found" ]; then
+    echo -e "${YELLOW}tailwind.config changed${NC}"
+    VALID=false
+fi
+
+# Check age (stale after 7 days)
+if [ "$(uname)" = "Darwin" ]; then
+    # macOS
+    FILE_AGE=$(( ($(date +%s) - $(stat -f %m "$CONTEXT_FILE")) / 86400 ))
+else
+    # Linux
+    FILE_AGE=$(( ($(date +%s) - $(stat -c %Y "$CONTEXT_FILE")) / 86400 ))
+fi
+
+if [ "$FILE_AGE" -gt 7 ]; then
+    echo -e "${YELLOW}Context file is $FILE_AGE days old (max 7)${NC}"
+    VALID=false
+fi
+
+if [ "$VALID" = true ]; then
+    echo -e "${GREEN}Context is valid${NC}"
+    exit 0
+else
+    echo -e "${RED}Context is stale - regenerate with: ./scripts/generate-context $PROJECT${NC}"
+    exit 1
+fi

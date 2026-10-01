@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+
+# start-session - Initialize AI workflow session
+# Usage: ./scripts/start-session <workflow> <task> [project]
+# Example: ./scripts/start-session quick-flow "Fix login bug" my-project
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+SESSION_DIR="$ROOT_DIR/.ai-session"
+CONFIG_FILE="$ROOT_DIR/.ai-config/settings.yaml"
+
+# Colors
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Check if setup was completed
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo ""
+    echo -e "${YELLOW}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  Setup Required                                      ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "  Please run setup first: ${GREEN}./scripts/setup${NC}"
+    echo ""
+    exit 1
+fi
+
+# Help
+if [ -z "$1" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    echo "Usage: ./scripts/start-session <workflow> <task> [project]"
+    echo ""
+    echo "Workflows:"
+    echo "  quick-flow   - Bug fixes, small changes (Developer → Tester → Deployer)"
+    echo "  full-bmad    - Features, components (Architect → Designer → Developer → ...)"
+    echo "  enterprise   - Large systems (Analyst → Product Owner → Architect → ...)"
+    echo ""
+    echo "Examples:"
+    echo "  ./scripts/start-session quick-flow \"Fix login bug\" my-project"
+    echo "  ./scripts/start-session full-bmad \"Add dark mode\" webapp"
+    echo "  ./scripts/start-session enterprise \"Build payment system\""
+    exit 0
+fi
+
+WORKFLOW="$1"
+TASK="$2"
+PROJECT="${3:-unspecified}"
+
+# Extract Jira ticket from task string (e.g. PROJ-12550), fallback to git branch
+JIRA_TICKET="$(echo "$TASK" | grep -Eo '[A-Z]{2,}-[0-9]+' | head -1)"
+if [ -z "$JIRA_TICKET" ] && [ "$PROJECT" != "unspecified" ]; then
+    _branch="$(git -C "$ROOT_DIR/agent/_projects/$PROJECT" branch --show-current 2>/dev/null || true)"
+    JIRA_TICKET="$(echo "$_branch" | grep -Eo '[A-Z]{2,}-[0-9]+' | head -1)"
+fi
+
+# Validate workflow
+case "$WORKFLOW" in
+    quick-flow|full-bmad|enterprise)
+        ;;
+    *)
+        echo -e "${YELLOW}Error: Invalid workflow '$WORKFLOW'${NC}"
+        echo "Valid workflows: quick-flow, full-bmad, enterprise"
+        exit 1
+        ;;
+esac
+
+if [ -z "$TASK" ]; then
+    echo -e "${YELLOW}Error: Task description required${NC}"
+    echo "Usage: ./scripts/start-session <workflow> <task> [project]"
+    exit 1
+fi
+
+# Create session directory
+mkdir -p "$SESSION_DIR"
+
+# Auto-cleanup old sessions (>7 days)
+find "$SESSION_DIR" -type f -mtime +7 -delete 2>/dev/null || true
+
+# ============================================
+# PROJECT CONTEXT MANAGEMENT (Auto-triggered)
+# ============================================
+PROJECT_PATH="$ROOT_DIR/agent/_projects/$PROJECT"
+CONTEXTS_DIR="$ROOT_DIR/.ai-contexts"
+CONTEXT_FILE="$CONTEXTS_DIR/$PROJECT.yaml"
+
+# Always trigger context generation for valid projects
+if [ "$PROJECT" != "unspecified" ]; then
+    # Check if project exists in _projects/ or is the workspace itself
+    if [ -d "$PROJECT_PATH" ] || [ "$PROJECT" = "ai-dev-agent" ] || [ -d "$ROOT_DIR/$PROJECT" ]; then
+        echo -e "${BLUE}Checking project context...${NC}"
+
+        if [ -f "$CONTEXT_FILE" ]; then
+            # Validate existing context
+            if "$SCRIPT_DIR/validate-context" "$PROJECT" > /dev/null 2>&1; then
+                echo -e "${GREEN}✓ Project context is valid${NC}"
+                # Output context summary for AI consumption
+                echo -e "${CYAN}Context loaded: $CONTEXT_FILE${NC}"
+            else
+                echo -e "${YELLOW}⚠ Context stale, regenerating...${NC}"
+                "$SCRIPT_DIR/generate-context" "$PROJECT"
+            fi
+        else
+            echo -e "${YELLOW}Generating project context...${NC}"
+            "$SCRIPT_DIR/generate-context" "$PROJECT"
+        fi
+        echo ""
+    else
+        echo -e "${YELLOW}⚠ Project '$PROJECT' not found in agent/_projects/${NC}"
+        echo -e "${YELLOW}  Run: ./scripts/add-project $PROJECT${NC}"
+        echo -e "${YELLOW}  Or:  ln -s /path/to/project agent/_projects/$PROJECT${NC}"
+        echo ""
+    fi
+fi
+
+# ─── Auto-sync pull ──────────────────────────────────────
+SYNC_CONFIG="$ROOT_DIR/.ai-config/sync.yaml"
+if [ -f "$SYNC_CONFIG" ]; then
+    _AUTO_PULL=""
+    while IFS= read -r _line; do
+        case "$_line" in *auto_pull:*) _v="${_line#*auto_pull:}"; _AUTO_PULL="${_v// /}" ;; esac
+    done < "$SYNC_CONFIG"
+    if [ "$_AUTO_PULL" = "true" ]; then
+        timeout 10 "$SCRIPT_DIR/sync" pull --quick --quiet 2>/dev/null || true
+    fi
+fi
+
+# Generate session ID
+SESSION_ID="$(date +%Y%m%d-%H%M%S)"
+TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Bind to the live Claude Code session_id so inject-context.sh can verify
+# current.yaml belongs to THIS conversation (not a stale prior session).
+# Prefer $CLAUDE_SESSION_ID if CC exports it; otherwise derive from the most
+# recently written sidecar (the UserPromptSubmit hook writes one per prompt).
+CLAUDE_SID="${CLAUDE_SESSION_ID:-}"
+if [ -z "$CLAUDE_SID" ] && [ -d "$SESSION_DIR/by-id" ]; then
+    LATEST_SIDECAR="$(ls -t "$SESSION_DIR/by-id"/*.json 2>/dev/null | head -1)"
+    if [ -n "$LATEST_SIDECAR" ]; then
+        CLAUDE_SID="$(basename "$LATEST_SIDECAR" .json)"
+    fi
+fi
+
+# Determine first agent and phase based on workflow
+case "$WORKFLOW" in
+    quick-flow)
+        FIRST_AGENT="developer"
+        FIRST_PHASE=3
+        PHASE_NAME="Implementation"
+        AGENTS="[developer, tester, deployer]"
+        ;;
+    full-bmad)
+        FIRST_AGENT="architect"
+        FIRST_PHASE=2
+        PHASE_NAME="Planning"
+        AGENTS="[architect, designer, developer, tester, reviewer, deployer, documenter]"
+        ;;
+    enterprise)
+        FIRST_AGENT="analyst"
+        FIRST_PHASE=1
+        PHASE_NAME="Analysis"
+        AGENTS="[analyst, product-owner, architect, designer, developer, tester, reviewer, deployer, documenter]"
+        ;;
+esac
+
+# Create session file
+cat > "$SESSION_DIR/current.yaml" << EOF
+# AI Workflow Session
+# Created: $TIMESTAMP
+# Do not edit manually - managed by workflow system
+
+session:
+  id: "$SESSION_ID"
+  started: "$TIMESTAMP"
+  workflow: "$WORKFLOW"
+  status: "active"
+  claude_session_id: "$CLAUDE_SID"
+
+task:
+  original: "$TASK"
+  refined: "$TASK"
+  project: "$PROJECT"
+  jira_ticket: "$JIRA_TICKET"
+
+current:
+  phase: $FIRST_PHASE
+  phase_name: "$PHASE_NAME"
+  agent: "$FIRST_AGENT"
+  agent_status: "active"
+  started: "$TIMESTAMP"
+
+workflow_sequence:
+  agents: $AGENTS
+  current_index: 0
+
+progress:
+  phases_completed: []
+  agents_completed: []
+
+outputs:
+  files: []
+
+decisions: []
+
+handoffs: []
+EOF
+
+# Phase B: also write per-cc-session yaml so a parallel terminal's start-session
+# call does not clobber this session's task binding. The hooks prefer
+# by-id/<sid>.yaml over current.yaml when sessionId is on the prompt payload.
+# When CLAUDE_SID is empty (start-session invoked before CC is bound), only
+# current.yaml is written; inject-context promotes it to by-id/<sid>.yaml on
+# the first prompt whose claude_session_id matches.
+if [ -n "$CLAUDE_SID" ]; then
+    mkdir -p "$SESSION_DIR/by-id"
+    cp "$SESSION_DIR/current.yaml" "$SESSION_DIR/by-id/$CLAUDE_SID.yaml"
+fi
+
+echo -e "${GREEN}Session initialized!${NC}"
+echo ""
+echo -e "${BLUE}Session Details:${NC}"
+echo "  ID:        $SESSION_ID"
+echo "  Workflow:  $WORKFLOW"
+echo "  Task:      $TASK"
+echo "  Project:   $PROJECT"
+echo "  Agent:     $FIRST_AGENT"
+echo "  Phase:     $FIRST_PHASE - $PHASE_NAME"
+echo ""
+echo -e "${BLUE}Session File:${NC} .ai-session/current.yaml"
+echo ""
+echo -e "${GREEN}Ready to work!${NC}"

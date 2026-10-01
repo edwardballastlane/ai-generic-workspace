@@ -1,0 +1,40 @@
+// AI-First §13 — The complete feedback loop. Flat draw.io style, 2-column page-friendly layout.
+// Render: dot -Tpng -Gdpi=300 docs/architecture/ai-first-feedback-loop.dot -o docs/architecture/ai-first-feedback-loop.png
+digraph feedback_loop {
+  rankdir=LR;
+  bgcolor="white";
+  splines=spline;
+  nodesep=0.4; ranksep=0.9;
+  node [shape=box, style="filled", fontname="Helvetica-Bold", fontcolor="white",
+        fontsize=20, penwidth=2.0, margin="0.28,0.18"];
+  edge [color="#2F2F2F", penwidth=2.2, arrowsize=1.0,
+        fontname="Helvetica", fontsize=16, fontcolor="#555555"];
+
+  { rank=same; prompt; hooks; claude; output; logs; }
+  { rank=same; extract; rules; team; memory; }
+
+  prompt  [label="Developer\nprompt", fillcolor="#4CAF50", color="#3C9140"];
+  hooks   [label="Hooks inject\nrules + context", fillcolor="#4F86C6", color="#3A6BA5"];
+  claude  [label="Claude responds\n(guided)", fillcolor="#7B61FF", color="#5E45D8"];
+  output  [label="Output:\ncode + actions", fillcolor="#F2931E", color="#D67C00"];
+  logs    [label="Session logs", fillcolor="#647687", color="#4E5D6B"];
+  extract [label="ExpeL + Reflexion\nextract", fillcolor="#8E44AD", color="#6F3686"];
+  rules   [label="Rules\nteam + personal", fillcolor="#16A2B8", color="#0E7E90"];
+  team    [label="Team shares\n(git)", fillcolor="#2E7D32", color="#1B5E20"];
+  memory  [label="Memory\nreview + native sync", fillcolor="#4F86C6", color="#3A6BA5"];
+
+  // column 1 flow
+  prompt -> hooks  [constraint=false];
+  hooks  -> claude [constraint=false];
+  claude -> output [constraint=false];
+  output -> logs   [constraint=false];
+  // wrap col1 → col2
+  logs -> extract [label="self:maintenance"];
+  // column 2 flow
+  extract -> rules [constraint=false];
+  rules   -> team  [constraint=false, label="rules:promote"];
+  team    -> memory[constraint=false];
+  // feedback edges
+  rules  -> hooks  [label="injected next prompt", style=dashed, color="#16A2B8", fontcolor="#0E7E90", constraint=false];
+  memory -> prompt [label="surfaces later", style=dashed, color="#4F86C6", fontcolor="#3A6BA5", constraint=false];
+}

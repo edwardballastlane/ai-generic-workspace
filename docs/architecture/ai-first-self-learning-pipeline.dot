@@ -1,0 +1,27 @@
+// AI-First §11 — Self-learning pipeline (ExpeL + Reflexion). Flat draw.io style.
+// Render: dot -Tpng -Gdpi=200 docs/architecture/ai-first-self-learning-pipeline.dot -o docs/architecture/ai-first-self-learning-pipeline.png
+digraph self_learning {
+  rankdir=TB;
+  bgcolor="white";
+  splines=spline;
+  nodesep=0.5; ranksep=0.55;
+  node [shape=box, style="filled", fontname="Helvetica-Bold", fontcolor="white",
+        fontsize=17, penwidth=1.4, margin="0.30,0.17", height=0.75];
+  edge [color="#2F2F2F", penwidth=1.4, arrowsize=0.9,
+        fontname="Helvetica", fontsize=14, fontcolor="#555555"];
+
+  session [label="AI Session\ndeveloper + Claude Code", fillcolor="#4CAF50", color="#3C9140"];
+  s1 [label="STEP 1 · Extract Insights (ExpeL)\ninsight-extractor.ts",        fillcolor="#4F86C6", color="#3A6BA5"];
+  s2 [label="STEP 2 · Detect Failures (Reflexion)\nreflection-generator.ts",   fillcolor="#8E44AD", color="#6F3686"];
+  s3 [label="STEP 3 · Track Reinforcement\nreinforcement-tracker.ts (track)",  fillcolor="#16A2B8", color="#0E7E90"];
+  s4 [label="STEP 4 · Prune Stale Rules\nreinforcement-tracker.ts (prune)",    fillcolor="#F2931E", color="#D67C00"];
+  s5 [label="STEP 5 · Promote to Team\npromote-rules.ts",                      fillcolor="#2E7D32", color="#1B5E20"];
+
+  session -> s1 [label="npm run self:maintenance"];
+  s1 -> s2 [label="→ rules.json"];
+  s2 -> s3 [label="+ prevention rules"];
+  s3 -> s4 [label="reinforcementCount ++"];
+  s4 -> s5 [label="proven kept"];
+  s5 -> done [label="15+ reinforcements", color="#2E7D32", fontcolor="#1B5E20"];
+  done [label="rules-shared.json\nshared with team (git)", fillcolor="#E8F5E9", color="#82B366", fontcolor="#2E5A1C", fontname="Helvetica"];
+}
