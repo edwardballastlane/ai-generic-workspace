@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# gh-wrap — thin wrapper over the GitHub CLI (gh). Replaces the GitHub MCP server.
+# Usage: gh-wrap <command> [args]   (run `gh-wrap help`)
+set -euo pipefail
+
+command -v gh >/dev/null || { echo "gh not installed: https://cli.github.com" >&2; exit 1; }
+gh auth status >/dev/null 2>&1 || { echo "gh not authenticated. Run: gh auth login" >&2; exit 1; }
+
+# Optional repo override: GH_REPO=owner/name or -R owner/name as first arg pair.
+repo_args=()
+if [[ "${1:-}" == "-R" ]]; then repo_args=(-R "$2"); shift 2; fi
+repo="${repo_args[1]:-${GH_REPO:-}}"
+[[ -n "$repo" && ${#repo_args[@]} -eq 0 ]] && repo_args=(-R "$repo")
+
+cmd="${1:-help}"; shift || true
+
+case "$cmd" in
+  me)           gh api user --jq '{login,name,email,public_repos,html_url}' ;;
+  repos)        gh repo list "${1:-}" --limit "${LIMIT:-30}" --json nameWithOwner,visibility,pushedAt,description ;;
+  repo)         gh repo view "${repo_args[@]}" --json nameWithOwner,defaultBranchRef,description,url,visibility ;;
+  branches)     gh api "repos/${repo:-{owner\}/{repo\}}/branches" --paginate --jq '.[] | {name,protected}' ;;
+  commits)      gh api "repos/${repo:-{owner\}/{repo\}}/commits?per_page=${LIMIT:-20}${1:+&sha=$1}" \
+                  --jq '.[] | {sha:.sha[0:7],author:.commit.author.name,date:.commit.author.date,msg:(.commit.message|split("\n")[0])}' ;;
+  prs)          gh pr list "${repo_args[@]}" --state "${STATE:-open}" --limit "${LIMIT:-30}" \
+                  --json number,title,author,headRefName,baseRefName,state,url ;;
+  pr)           gh pr view "$1" "${repo_args[@]}" --json number,title,body,state,author,headRefName,baseRefName,files,reviews,statusCheckRollup,url ;;
+  pr-diff)      gh pr diff "$1" "${repo_args[@]}" ;;
+  pr-create)    gh pr create "${repo_args[@]}" "$@" ;;   # e.g. --base dev --title T --body-file f
+  pr-templates) gh api "repos/${repo:-{owner\}/{repo\}}/contents/.github" --jq '.[].name' 2>/dev/null || echo "none" ;;
+  pr-merged)    gh pr list "${repo_args[@]}" --state merged --limit "${LIMIT:-5}" --json number,title,body,url ;;
+  issues)       gh issue list "${repo_args[@]}" --state "${STATE:-open}" --limit "${LIMIT:-30}" --json number,title,author,labels,url ;;
+  issue)        gh issue view "$1" "${repo_args[@]}" --json number,title,body,state,comments,url ;;
+  search-code)  gh search code "$@" --limit "${LIMIT:-20}" ;;
+  search-prs)   gh search prs "$@" --limit "${LIMIT:-20}" ;;
+  contributors) gh api "repos/${repo:-{owner\}/{repo\}}/contributors" --jq '.[] | {login,contributions}' ;;
+  my-commits)   gh api "search/commits?q=author:$(gh api user --jq .login)${1:++repo:$1}&per_page=${LIMIT:-20}" \
+                  --jq '.items[] | {repo:.repository.full_name,sha:.sha[0:7],date:.commit.author.date,msg:(.commit.message|split("\n")[0])}' ;;
+  api)          gh api "$@" ;;
+  help|-h|--help)
+    cat <<'H'
+gh-wrap [-R owner/name] <command> [args]   (env: GH_REPO, LIMIT, STATE)
+  me | repos [owner] | repo | branches | commits [branch]
+  prs | pr <n> | pr-diff <n> | pr-merged | pr-templates | pr-create <gh flags>
+  issues | issue <n> | search-code <q> | search-prs <q>
+  contributors | my-commits [owner/name] | api <gh api args>
+Repo defaults to current git remote when -R / GH_REPO not set.
+H
+    ;;
+  *) echo "unknown command: $cmd (try: gh-wrap help)" >&2; exit 2 ;;
+esac
